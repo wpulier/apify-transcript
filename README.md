@@ -78,6 +78,12 @@ $0.08 per transcription-minute
 
 The recommended price is meant to cover provider costs, platform compute, storage, large-file handling, retries, transcript formatting, subtitle generation, ZIP packaging, and quality reporting.
 
+Launch margin policy:
+
+- Keep platform usage pass-through enabled until real paid runs prove the runtime cost.
+- Keep managed-key pricing at `$0.08/min` or higher.
+- Raise to `$0.10-$0.12/min` if platform usage is absorbed and median runtime exceeds `4x` source audio duration.
+
 ## Limitations
 
 - Transcription quality depends on source audio quality, overlapping speakers, background noise, accents, and provider behavior.

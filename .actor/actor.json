@@ -12,6 +12,6 @@
     "dataset": "./dataset_schema.json"
   },
   "minMemoryMbytes": 1024,
-  "defaultMemoryMbytes": 4096,
+  "defaultMemoryMbytes": 2048,
   "maxMemoryMbytes": 8192
 }

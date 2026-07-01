@@ -66,6 +66,15 @@ Expected customer prices:
 
 This prices the workflow outcome, not just the raw speech-to-text call. The delivered value includes large-file media prep, provider orchestration, diarization, subtitles, JSON export, ZIP packaging, quality audit, dataset rows, and Apify-hosted artifacts.
 
+Margin policy:
+
+- Keep `$0.08/min` for launch.
+- Keep platform usage pass-through enabled until at least 10 paid runs have been measured.
+- Do not reduce price while managed provider keys are offered.
+- If platform usage pass-through is disabled and median runtime exceeds `4x` source duration, move pricing to `$0.10-$0.12/min`.
+
+See `docs/MARGIN_MODEL.md` for the full margin model.
+
 ## Cost Controls
 
 - `requireSuccessfulCharge` defaults to `true`.
