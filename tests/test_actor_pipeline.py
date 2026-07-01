@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from apify_transcript.actor import run
+from apify_transcript.actor import artifact_url, run
 from apify_transcript.config import TranscriptConfig
 from apify_transcript.media import MediaSource, parse_media_sources
 from apify_transcript.transcript import (
@@ -118,6 +118,18 @@ class InputTests(unittest.TestCase):
 
 
 class ArtifactTests(unittest.TestCase):
+    def test_artifact_url_can_be_signed_for_browser_access(self):
+        with patch.dict(
+            "os.environ",
+            {"APIFY_DEFAULT_KEY_VALUE_STORE_ID": "store123"},
+            clear=True,
+        ):
+            url = artifact_url("001_demo.txt", signing_secret="secret")
+        self.assertEqual(
+            url,
+            "https://api.apify.com/v2/key-value-stores/store123/records/001_demo.txt?signature=VT6pvNYVcXQtMYUm72LS",
+        )
+
     def test_renders_transcript_artifacts(self):
         canonical = sample_canonical()
         self.assertIn("[00:00:00 Speaker 0] Hello there.", render_txt(canonical))

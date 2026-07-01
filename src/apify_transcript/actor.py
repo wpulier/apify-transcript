@@ -5,8 +5,11 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
+import httpx
 from apify import Actor
+from apify_shared.utils import create_hmac_signature
 
 from .billing import charge_transcription_minutes, ensure_budget
 from .config import TranscriptConfig
@@ -16,6 +19,7 @@ from .utils import ceil_minutes, slugify
 
 
 ACTOR_ID = "kTgaX3cfI6dlJHa6J"
+APIFY_API_BASE_URL = "https://api.apify.com/v2"
 
 
 def artifact_key(source_id: str, source_name: str, suffix: str) -> str:
@@ -25,11 +29,43 @@ def artifact_key(source_id: str, source_name: str, suffix: str) -> str:
     return f"{source_id}_{stem}.{suffix}"
 
 
-def artifact_url(key: str) -> str | None:
-    store_id = os.environ.get("APIFY_DEFAULT_KEY_VALUE_STORE_ID")
+def artifact_url(key: str, store_id: str | None = None, signing_secret: str | None = None) -> str | None:
+    store_id = store_id or os.environ.get("APIFY_DEFAULT_KEY_VALUE_STORE_ID")
     if not store_id:
         return None
-    return f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{key}"
+    url = f"{APIFY_API_BASE_URL}/key-value-stores/{store_id}/records/{quote(key, safe='')}"
+    if signing_secret:
+        signature = create_hmac_signature(signing_secret, key)
+        return f"{url}?signature={quote(signature, safe='')}"
+    return url
+
+
+def artifact_urls(keys: dict[str, str], signing_secret: str | None = None) -> dict[str, str]:
+    urls = {}
+    for suffix, key in keys.items():
+        url = artifact_url(key, signing_secret=signing_secret)
+        if url:
+            urls[suffix] = url
+    return urls
+
+
+async def default_store_signing_secret() -> str | None:
+    store_id = os.environ.get("APIFY_DEFAULT_KEY_VALUE_STORE_ID")
+    token = os.environ.get("APIFY_TOKEN")
+    if not store_id or not token:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(
+                f"{APIFY_API_BASE_URL}/key-value-stores/{store_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+    except Exception:
+        return None
+    data = response.json().get("data") or {}
+    secret = data.get("urlSigningSecretKey")
+    return str(secret) if secret else None
 
 
 async def store_artifacts(actor: object, source_id: str, source_name: str, payloads: dict[str, tuple[bytes, str]]) -> dict[str, str]:
@@ -64,6 +100,9 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
     )
     await actor.set_status_message(f"Writing artifacts for {source.name}")
     keys = await store_artifacts(actor, source.source_id, source.name, payloads)
+    await actor.set_status_message(f"Signing artifact links for {source.name}")
+    signing_secret = await default_store_signing_secret()
+    urls = artifact_urls(keys, signing_secret)
     row = {
         "status": "completed",
         "sourceId": source.source_id,
@@ -87,8 +126,13 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         "vttKey": keys.get("vtt"),
         "qualityKey": keys.get("quality.json"),
         "zipKey": keys.get("zip"),
-        "txtUrl": artifact_url(keys["txt"]) if keys.get("txt") else None,
-        "zipUrl": artifact_url(keys["zip"]) if keys.get("zip") else None,
+        "artifactUrls": urls,
+        "txtUrl": urls.get("txt"),
+        "jsonUrl": urls.get("json"),
+        "srtUrl": urls.get("srt"),
+        "vttUrl": urls.get("vtt"),
+        "qualityUrl": urls.get("quality.json"),
+        "zipUrl": urls.get("zip"),
         "warnings": bundle.quality.get("warnings", []),
         "failures": bundle.quality.get("failures", []),
         "error": None,
@@ -127,6 +171,7 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     "charged": False,
                     "chargeMessage": None,
                     "artifactKeys": {},
+                    "artifactUrls": {},
                     "error": str(exc),
                 }
                 await actor.push_data(row)
