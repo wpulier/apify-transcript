@@ -48,12 +48,17 @@ class FakeActor:
         raise RuntimeError("not configured")
 
     async def charge(self, event_name, count=1):
-        return SimpleNamespace(event_charge_limit_reached=False)
+        return SimpleNamespace(event_charge_limit_reached=False, charged_count=count)
 
 
 class ChargeFailingActor(FakeActor):
     async def charge(self, event_name, count=1):
         raise RuntimeError("pricing event is not configured")
+
+
+class ChargeIgnoredActor(FakeActor):
+    async def charge(self, event_name, count=1):
+        return SimpleNamespace(event_charge_limit_reached=False, charged_count=0)
 
 
 def sample_canonical():
@@ -270,6 +275,33 @@ class ActorRunTests(unittest.TestCase):
 
         self.assertEqual(fake_actor.dataset[0]["status"], "failed")
         self.assertIn("Could not charge", fake_actor.dataset[0]["error"])
+        self.assertFalse(fake_actor.dataset[0]["charged"])
+        self.assertNotIn("001_a.txt", fake_actor.values)
+
+    def test_ignored_charge_prevents_artifact_delivery_when_required(self):
+        fake_actor = ChargeIgnoredActor(
+            {
+                "mediaUrls": ["https://example.com/a.mp4"],
+                "provider": "openai",
+                "openaiApiKey": "key",
+            }
+        )
+
+        def fake_download(source, target_dir, apify_token=None):
+            path = Path(target_dir) / f"{source.source_id}.mp4"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"media")
+            return SimpleNamespace(source=source, path=path, content_type="video/mp4")
+
+        with patch("apify_transcript.actor.require_ffmpeg"):
+            with patch("apify_transcript.actor.download_source", side_effect=fake_download):
+                with patch("apify_transcript.actor.ffprobe_duration", return_value=64.0):
+                    with patch("apify_transcript.actor.transcribe_media", return_value=sample_bundle()):
+                        with self.assertRaisesRegex(RuntimeError, "1 media file"):
+                            asyncio.run(run(fake_actor))
+
+        self.assertEqual(fake_actor.dataset[0]["status"], "failed")
+        self.assertIn("charged 0/2", fake_actor.dataset[0]["error"])
         self.assertFalse(fake_actor.dataset[0]["charged"])
         self.assertNotIn("001_a.txt", fake_actor.values)
 

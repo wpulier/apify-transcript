@@ -46,10 +46,18 @@ async def charge_transcription_minutes(
             raise RuntimeError(f"Could not charge {minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s): {exc}") from exc
         return BillingResult(charged=False, minutes=minutes, message=str(exc))
     limit_reached = getattr(result, "event_charge_limit_reached", False)
-    if limit_reached and required:
-        raise RuntimeError(f"Run charge limit reached before charging {minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s)")
+    charged_count = getattr(result, "charged_count", minutes if not limit_reached else 0)
+    if charged_count < minutes:
+        message = (
+            f"charged {charged_count}/{minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s)"
+            if not limit_reached
+            else f"charge limit reached after charging {charged_count}/{minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s)"
+        )
+        if required:
+            raise RuntimeError(message)
+        return BillingResult(charged=False, minutes=minutes, message=message)
     return BillingResult(
-        charged=not bool(limit_reached),
+        charged=True,
         minutes=minutes,
-        message="charge limit reached" if limit_reached else None,
+        message=None,
     )
