@@ -38,6 +38,9 @@ jobs:
         with:
           token: ${{ secrets.APIFY_TOKEN }}
 
+      - name: Validate Apify input schema
+        run: apify validate-schema .actor/INPUT_SCHEMA.json
+
       - name: Push to Apify
         env:
           APIFY_CLI_DISABLE_TELEMETRY: "1"

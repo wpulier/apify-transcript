@@ -7,7 +7,7 @@ This Actor should launch at a price that keeps margin positive under normal and 
 Recommended pay-per-event price:
 
 ```text
-$0.08 per transcription-minute
+$0.10 per transcription-minute
 ```
 
 Primary event:
@@ -19,8 +19,8 @@ transcription-minute
 Launch rule:
 
 - Keep Apify platform usage pass-through enabled until at least 10 real paid runs have been measured.
-- Do not reduce price below `$0.08/min` while using managed provider keys.
-- If platform usage pass-through is disabled and median runtime is more than `4x` source audio duration, raise price to `$0.10-$0.12/min` or optimize runtime first.
+- Do not reduce price below `$0.10/min` while using managed provider keys.
+- If platform usage pass-through is disabled and median runtime is more than `4x` source audio duration, raise price to `$0.12-$0.15/min` or optimize runtime first.
 
 ## Margin Formula
 
@@ -57,16 +57,16 @@ Official references:
 
 ## Per-Minute Economics
 
-At `$0.08/min`, Apify keeps 20%, so net before provider/platform is:
+At `$0.10/min`, Apify keeps 20%, so net before provider/platform is:
 
 ```text
-$0.08 * 0.8 = $0.064/min
+$0.10 * 0.8 = $0.080/min
 ```
 
 With OpenAI at `$0.006/min`:
 
 ```text
-$0.064 - $0.006 = $0.058/min
+$0.080 - $0.006 = $0.074/min
 ```
 
 That is the expected per-minute contribution when platform usage is passed through.
@@ -88,31 +88,31 @@ At 2 GB and `$0.20/CU`:
 
 | Runtime ratio | Platform cost/min | Profit/min after Apify + OpenAI + platform | Margin on customer price |
 | --- | ---: | ---: | ---: |
-| `1x` | `$0.0067` | `$0.0513` | `64%` |
-| `2x` | `$0.0133` | `$0.0447` | `56%` |
-| `4x` | `$0.0267` | `$0.0313` | `39%` |
-| `6x` | `$0.0400` | `$0.0180` | `23%` |
-| `8x` | `$0.0533` | `$0.0047` | `6%` |
+| `1x` | `$0.0067` | `$0.0673` | `67%` |
+| `2x` | `$0.0133` | `$0.0607` | `61%` |
+| `4x` | `$0.0267` | `$0.0473` | `47%` |
+| `6x` | `$0.0400` | `$0.0340` | `34%` |
+| `8x` | `$0.0533` | `$0.0207` | `21%` |
 
 Break-even at 2 GB with OpenAI:
 
 ```text
-runtime_ratio ~= 8.7x
+runtime_ratio ~= 11.1x
 ```
 
-This means a 60-minute file would need to take about 8.7 hours of Actor runtime before `$0.08/min` breaks even when platform usage is not passed through.
+This means a 60-minute file would need to take about 11.1 hours of Actor runtime before `$0.10/min` breaks even when platform usage is not passed through.
 
 ## Pricing Decision
 
-`$0.08/min` has healthy margin for launch if:
+`$0.10/min` has healthy margin for launch if:
 
 - platform usage pass-through is enabled, or
 - default memory stays near 2 GB, and
 - typical runtime stays under `4x` audio duration.
 
-Keep the launch price at `$0.08/min` for now.
+Keep the launch price at `$0.10/min` for paid public beta.
 
-Raise to `$0.10/min` if:
+Raise to `$0.12/min` if:
 
 - customers mainly use managed keys,
 - platform usage pass-through is disabled,

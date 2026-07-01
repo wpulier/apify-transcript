@@ -1,6 +1,6 @@
 # Monetization Setup
 
-This Actor is prepared for Apify Pay Per Event monetization. The code charges only after transcript generation succeeds and before transcript artifacts are delivered.
+This Actor is prepared for Apify Pay Per Event monetization. The code charges only after transcription and local artifact generation succeed, then writes downloadable transcript artifacts after the charge succeeds.
 
 ## Actor
 
@@ -34,7 +34,7 @@ In Apify Console:
 ```text
 Event name: transcription-minute
 Description: One started minute of successfully generated video or audio transcript output.
-Price: $0.08
+Price: $0.10
 Unit: event
 ```
 
@@ -54,24 +54,24 @@ Observed Console blockers on 2026-07-01:
 Recommended launch price:
 
 ```text
-$0.08 per started transcription minute
+$0.10 per started transcription minute
 ```
 
 Expected customer prices:
 
-- 30 minute recording: about `$2.40`
-- 60 minute recording: about `$4.80`
-- 90 minute recording: about `$7.20`
-- 120 minute recording: about `$9.60`
+- 30 minute recording: about `$3.00`
+- 60 minute recording: about `$6.00`
+- 90 minute recording: about `$9.00`
+- 120 minute recording: about `$12.00`
 
 This prices the workflow outcome, not just the raw speech-to-text call. The delivered value includes large-file media prep, provider orchestration, diarization, subtitles, JSON export, ZIP packaging, quality audit, dataset rows, and Apify-hosted artifacts.
 
 Margin policy:
 
-- Keep `$0.08/min` for launch.
+- Keep `$0.10/min` for launch.
 - Keep platform usage pass-through enabled until at least 10 paid runs have been measured.
 - Do not reduce price while managed provider keys are offered.
-- If platform usage pass-through is disabled and median runtime exceeds `4x` source duration, move pricing to `$0.10-$0.12/min`.
+- If platform usage pass-through is disabled and median runtime exceeds `4x` source duration, move pricing to `$0.12-$0.15/min`.
 
 See `docs/MARGIN_MODEL.md` for the full margin model.
 
@@ -88,7 +88,7 @@ See `docs/MARGIN_MODEL.md` for the full margin model.
 Short description:
 
 ```text
-Upload large MP4, MOV, MP3, M4A, or WAV files and get a complete transcript bundle with speaker labels, timestamps, subtitles, JSON, ZIP, and quality report.
+Upload large video or audio files and get an MP3 plus timestamped transcript exports with speaker labels, subtitles, JSON, ZIP, and quality reports.
 ```
 
 Best customer segments:
@@ -109,6 +109,7 @@ Best customer segments:
 - Confirm `OPENAI_API_KEY` is set as an Apify secret environment variable.
 - Add `ELEVENLABS_API_KEY` if ElevenLabs fallback will be marketed.
 - Run one private paid test with a short MP4.
+- Run one private Console-upload test under limited permissions.
 - Confirm dataset row has `charged: true`.
 - Confirm TXT, JSON, SRT, VTT, quality, and ZIP artifacts are present.
 - Confirm the run cost matches expected billable minutes.

@@ -1,0 +1,25 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "Large Video to Transcript output",
+  "description": "Links to transcript result rows, the run summary, and generated transcript/audio artifacts.",
+  "properties": {
+    "results": {
+      "type": "string",
+      "title": "Transcript results",
+      "description": "Dataset rows with status, quality, duration, word count, speaker count, and signed artifact links for each uploaded media file.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
+    },
+    "summary": {
+      "type": "string",
+      "title": "Run summary",
+      "description": "JSON summary with total successful and failed media files.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/OUTPUT"
+    },
+    "artifacts": {
+      "type": "string",
+      "title": "Generated artifacts",
+      "description": "Key-value store records for MP3, TXT, JSON, SRT, VTT, quality report, and ZIP outputs.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys"
+    }
+  }
+}

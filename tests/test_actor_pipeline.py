@@ -61,6 +61,16 @@ class ChargeIgnoredActor(FakeActor):
         return SimpleNamespace(event_charge_limit_reached=False, charged_count=0)
 
 
+class OrderTrackingActor(FakeActor):
+    def __init__(self, actor_input, events):
+        super().__init__(actor_input)
+        self.events = events
+
+    async def charge(self, event_name, count=1):
+        self.events.append("charge")
+        return await super().charge(event_name, count)
+
+
 def sample_canonical():
     return {
         "provider": "openai",
@@ -101,9 +111,21 @@ class InputTests(unittest.TestCase):
     def test_input_schema_requires_a_media_source(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
         self.assertEqual(schema["properties"]["media"]["editor"], "fileupload")
+        self.assertEqual(schema["properties"]["media"]["title"], "Upload media files")
         self.assertEqual(schema["properties"]["media"]["minItems"], 1)
         self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
+        self.assertEqual(schema["properties"]["requireSuccessfulCharge"]["editor"], "hidden")
         self.assertEqual(schema["required"], ["media"])
+
+    def test_actor_wires_dataset_and_output_schemas(self):
+        root = Path(__file__).resolve().parents[1]
+        actor = json.loads((root / ".actor" / "actor.json").read_text())
+        output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
+        self.assertEqual(actor["output"], "./output_schema.json")
+        self.assertEqual(actor["storages"]["dataset"], "./dataset_schema.json")
+        self.assertIn("results", output_schema["properties"])
+        self.assertIn("summary", output_schema["properties"])
+        self.assertIn("artifacts", output_schema["properties"])
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
@@ -317,8 +339,10 @@ class ActorRunTests(unittest.TestCase):
             with patch("apify_transcript.actor.download_source", side_effect=fake_download):
                 with patch("apify_transcript.actor.ffprobe_duration", return_value=64.0):
                     with patch("apify_transcript.actor.transcribe_media", return_value=sample_bundle()):
-                        with self.assertRaisesRegex(RuntimeError, "1 media file"):
-                            asyncio.run(run(fake_actor))
+                        with patch("apify_transcript.actor.prepare_mp3_artifact", return_value=Path("audio.mp3")):
+                            with patch("apify_transcript.actor.artifact_payloads", return_value={"txt": (b"text", "text/plain")}):
+                                with self.assertRaisesRegex(RuntimeError, "1 media file"):
+                                    asyncio.run(run(fake_actor))
 
         self.assertEqual(fake_actor.dataset[0]["status"], "failed")
         self.assertIn("Could not charge", fake_actor.dataset[0]["error"])
@@ -344,13 +368,56 @@ class ActorRunTests(unittest.TestCase):
             with patch("apify_transcript.actor.download_source", side_effect=fake_download):
                 with patch("apify_transcript.actor.ffprobe_duration", return_value=64.0):
                     with patch("apify_transcript.actor.transcribe_media", return_value=sample_bundle()):
-                        with self.assertRaisesRegex(RuntimeError, "1 media file"):
-                            asyncio.run(run(fake_actor))
+                        with patch("apify_transcript.actor.prepare_mp3_artifact", return_value=Path("audio.mp3")):
+                            with patch("apify_transcript.actor.artifact_payloads", return_value={"txt": (b"text", "text/plain")}):
+                                with self.assertRaisesRegex(RuntimeError, "1 media file"):
+                                    asyncio.run(run(fake_actor))
 
         self.assertEqual(fake_actor.dataset[0]["status"], "failed")
         self.assertIn("charged 0/2", fake_actor.dataset[0]["error"])
         self.assertFalse(fake_actor.dataset[0]["charged"])
         self.assertNotIn("001_a.txt", fake_actor.values)
+
+    def test_charge_happens_after_local_payload_generation_and_before_store(self):
+        events = []
+        fake_actor = OrderTrackingActor(
+            {
+                "mediaUrls": ["https://example.com/a.mp4"],
+                "provider": "openai",
+                "openaiApiKey": "key",
+            },
+            events,
+        )
+
+        def fake_download(source, target_dir, apify_token=None):
+            path = Path(target_dir) / f"{source.source_id}.mp4"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"media")
+            return SimpleNamespace(source=source, path=path, content_type="video/mp4")
+
+        def fake_prepare(*args, **kwargs):
+            events.append("prepare")
+            return Path("audio.mp3")
+
+        def fake_payloads(*args, **kwargs):
+            events.append("payloads")
+            return {"txt": (b"text", "text/plain")}
+
+        async def fake_store(*args, **kwargs):
+            events.append("store")
+            return {"txt": "001_a.txt"}
+
+        with patch("apify_transcript.actor.require_ffmpeg"):
+            with patch("apify_transcript.actor.download_source", side_effect=fake_download):
+                with patch("apify_transcript.actor.ffprobe_duration", return_value=64.0):
+                    with patch("apify_transcript.actor.transcribe_media", return_value=sample_bundle()):
+                        with patch("apify_transcript.actor.prepare_mp3_artifact", side_effect=fake_prepare):
+                            with patch("apify_transcript.actor.artifact_payloads", side_effect=fake_payloads):
+                                with patch("apify_transcript.actor.store_artifacts", side_effect=fake_store):
+                                    asyncio.run(run(fake_actor))
+
+        self.assertEqual(events, ["prepare", "payloads", "charge", "store"])
+        self.assertEqual(fake_actor.dataset[0]["status"], "completed")
 
 
 if __name__ == "__main__":

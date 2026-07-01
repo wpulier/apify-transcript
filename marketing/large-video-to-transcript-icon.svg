@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Large Video to Transcript icon</title>
+  <desc id="desc">A document with an audio waveform and transcript lines.</desc>
+  <rect width="512" height="512" rx="96" fill="#101827"/>
+  <path d="M144 88h152l72 72v264H144z" fill="#f8fafc"/>
+  <path d="M296 88v72h72" fill="#d9e2ef"/>
+  <path d="M178 230h156" stroke="#101827" stroke-width="18" stroke-linecap="round"/>
+  <path d="M178 288h156" stroke="#101827" stroke-width="18" stroke-linecap="round"/>
+  <path d="M178 346h112" stroke="#101827" stroke-width="18" stroke-linecap="round"/>
+  <path d="M174 166h20v26h-20zM210 134h20v58h-20zM246 150h20v42h-20zM282 122h20v70h-20zM318 146h20v46h-20z" fill="#0f766e"/>
+  <circle cx="144" cy="424" r="42" fill="#0f766e"/>
+  <path d="M130 402v44l38-22z" fill="#f8fafc"/>
+</svg>

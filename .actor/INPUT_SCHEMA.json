@@ -1,12 +1,12 @@
 {
   "title": "Large Video to Transcript",
-  "description": "Upload one or more video/audio files, or paste direct downloadable media URLs. The Actor returns an MP3 plus timestamped transcript exports for each source.",
+  "description": "Upload one or more video/audio files. The Actor returns an MP3 plus timestamped transcript exports for each source.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "media": {
-      "title": "Media files or URLs",
-      "description": "Upload MP4, MOV, WebM, MP3, M4A, WAV, or paste direct downloadable media URLs. Add at least one item before running.",
+      "title": "Upload media files",
+      "description": "Upload MP4, MOV, WebM, MP3, M4A, or WAV files. Add at least one file before running.",
       "type": "array",
       "editor": "fileupload",
       "minItems": 1,
@@ -90,7 +90,7 @@
       "title": "Require successful billing",
       "description": "Production safety switch. When enabled, transcript artifacts are delivered only after the configured Apify pay-per-event charge succeeds.",
       "type": "boolean",
-      "editor": "checkbox",
+      "editor": "hidden",
       "default": true
     },
     "openaiApiKey": {

@@ -7,7 +7,7 @@ from .utils import ceil_minutes
 
 TRANSCRIPTION_MINUTE_EVENT = "transcription-minute"
 TRANSCRIPTION_MINUTE_DESCRIPTION = "One started minute of successfully generated video or audio transcript output."
-RECOMMENDED_TRANSCRIPTION_MINUTE_PRICE_USD = 0.08
+RECOMMENDED_TRANSCRIPTION_MINUTE_PRICE_USD = 0.10
 
 
 @dataclass(frozen=True)

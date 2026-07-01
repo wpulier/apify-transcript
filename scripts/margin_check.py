@@ -9,7 +9,7 @@ def money(value: float) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Estimate Apify Actor per-minute margin.")
-    parser.add_argument("--price", type=float, default=0.08, help="Customer price per transcription minute.")
+    parser.add_argument("--price", type=float, default=0.10, help="Customer price per transcription minute.")
     parser.add_argument("--provider-cost", type=float, default=0.006, help="Provider cost per audio minute.")
     parser.add_argument("--cu-price", type=float, default=0.20, help="Apify compute unit price.")
     parser.add_argument("--memory-gb", type=float, default=2.0, help="Actor memory in GB.")

@@ -2,7 +2,7 @@
 
 Upload a large video or audio file and get an MP3 plus timestamped transcript exports.
 
-Upload MP4, MOV, WebM, MP3, M4A, WAV, or paste direct downloadable media URLs. The Actor prepares the media with ffmpeg, creates a normalized MP3, transcribes it with OpenAI or ElevenLabs, and returns clean signed download links for each file.
+Upload MP4, MOV, WebM, MP3, M4A, or WAV files. The Actor prepares the media with ffmpeg, creates a normalized MP3, transcribes it with OpenAI or ElevenLabs, and returns clean signed download links for each file.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -23,12 +23,12 @@ The Actor also writes one dataset row per source with status, quality, duration,
 ## How To Run
 
 1. Open the Actor input tab.
-2. Add one or more files or direct media URLs in `Media files or URLs`.
+2. Add one or more files in `Upload media files`.
 3. Leave `Transcript provider` as OpenAI unless you want ElevenLabs.
 4. Leave `Quality mode` as Authoritative for client-ready transcripts.
 5. Click Run and download outputs from the Output tab.
 
-The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them.
+The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 
@@ -38,7 +38,7 @@ The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-d
 - Includes a quality report so you can see whether the transcript looks complete.
 - Continues processing later files even if one source fails.
 
-## Input Example
+## API Example
 
 ```json
 {
@@ -83,7 +83,7 @@ It represents one started minute of successfully generated transcript output. Th
 Recommended launch price:
 
 ```text
-$0.08 per transcription-minute
+$0.10 per transcription-minute
 ```
 
 The recommended price is meant to cover provider costs, platform compute, storage, large-file handling, retries, transcript formatting, subtitle generation, ZIP packaging, and quality reporting.
@@ -91,14 +91,14 @@ The recommended price is meant to cover provider costs, platform compute, storag
 Launch margin policy:
 
 - Keep platform usage pass-through enabled until real paid runs prove the runtime cost.
-- Keep managed-key pricing at `$0.08/min` or higher.
-- Raise to `$0.10-$0.12/min` if platform usage is absorbed and median runtime exceeds `4x` source audio duration.
+- Keep managed-key pricing at `$0.10/min` or higher.
+- Raise to `$0.12-$0.15/min` if platform usage is absorbed and median runtime exceeds `4x` source audio duration.
 
 ## Limitations
 
 - Transcription quality depends on source audio quality, overlapping speakers, background noise, accents, and provider behavior.
 - Speaker labels are generic, such as `Speaker 0`, unless a future workflow maps names.
-- Direct media URLs must be downloadable by the Actor without an interactive login.
+- Direct media URLs are supported for API users by passing strings in the `media` array; URLs must be downloadable by the Actor without an interactive login.
 - Upload or transcribe only media you own, are licensed to process, or otherwise have permission to process.
 
 ## Development
