@@ -1,0 +1,41 @@
+{
+  "actorSpecification": 1,
+  "views": {
+    "overview": {
+      "title": "Transcript results",
+      "transformation": {
+        "fields": [
+          "status",
+          "sourceName",
+          "provider",
+          "model",
+          "qualityStatus",
+          "wordCount",
+          "speakerCount",
+          "sourceDuration",
+          "transcriptEndTime",
+          "txtKey",
+          "zipKey",
+          "error"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "status": { "label": "Status" },
+          "sourceName": { "label": "Source" },
+          "provider": { "label": "Provider" },
+          "model": { "label": "Model" },
+          "qualityStatus": { "label": "Quality" },
+          "wordCount": { "label": "Words" },
+          "speakerCount": { "label": "Speakers" },
+          "sourceDuration": { "label": "Duration" },
+          "txtKey": { "label": "TXT key" },
+          "zipKey": { "label": "ZIP key" },
+          "error": { "label": "Error" }
+        }
+      }
+    }
+  }
+}
+

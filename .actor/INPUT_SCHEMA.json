@@ -1,0 +1,90 @@
+{
+  "title": "Large Video to Transcript",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "mediaFiles": {
+      "title": "Upload video or audio files",
+      "description": "Upload MP4, MOV, WebM, MP3, M4A, WAV, or another supported media file. You can upload multiple files.",
+      "type": "array",
+      "editor": "fileupload",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "mediaUrls": {
+      "title": "Direct media URLs",
+      "description": "Direct downloadable URLs to media files you have permission to transcribe.",
+      "type": "array",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "provider": {
+      "title": "Transcript provider",
+      "description": "OpenAI is the default. Auto uses OpenAI when available, then ElevenLabs.",
+      "type": "string",
+      "editor": "select",
+      "enum": ["openai", "elevenlabs", "auto"],
+      "enumTitles": ["OpenAI", "ElevenLabs", "Auto"],
+      "default": "openai"
+    },
+    "qualityMode": {
+      "title": "Quality mode",
+      "description": "Authoritative creates speaker-labeled transcript bundles. Fast creates a quicker text-first transcript.",
+      "type": "string",
+      "editor": "select",
+      "enum": ["authoritative", "fast"],
+      "enumTitles": ["Authoritative", "Fast"],
+      "default": "authoritative"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Language hint such as en. Leave empty only when you want provider auto-detection.",
+      "type": "string",
+      "editor": "textfield",
+      "default": "en"
+    },
+    "keyterms": {
+      "title": "Key terms",
+      "description": "Domain-specific names or terms, one per line. Used by providers that support glossary/keyterm prompting.",
+      "type": "string",
+      "editor": "textarea"
+    },
+    "includeZip": {
+      "title": "Create ZIP bundle",
+      "description": "Include TXT, JSON, SRT, VTT, and quality report in a downloadable ZIP.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true
+    },
+    "transcriptConcurrency": {
+      "title": "Chunk concurrency",
+      "description": "Concurrent provider requests for chunked long-audio transcription.",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 8,
+      "default": 3
+    },
+    "openaiApiKey": {
+      "title": "OpenAI API key",
+      "description": "Optional. If omitted, the Actor uses its encrypted OPENAI_API_KEY environment variable.",
+      "type": "string",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "elevenlabsApiKey": {
+      "title": "ElevenLabs API key",
+      "description": "Optional. If omitted, the Actor uses its encrypted ELEVENLABS_API_KEY environment variable.",
+      "type": "string",
+      "editor": "textfield",
+      "isSecret": true
+    }
+  },
+  "required": []
+}
+

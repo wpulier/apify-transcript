@@ -1,0 +1,16 @@
+{
+  "actorSpecification": 1,
+  "name": "large-video-to-transcript",
+  "title": "Large Video to Transcript",
+  "description": "Convert large video and audio files into speaker-labeled transcript bundles with TXT, JSON, SRT, VTT, ZIP, and quality reports.",
+  "version": "0.1",
+  "buildTag": "latest",
+  "input": "./INPUT_SCHEMA.json",
+  "readme": "../README.md",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "minMemoryMbytes": 1024,
+  "defaultMemoryMbytes": 4096,
+  "maxMemoryMbytes": 8192
+}
