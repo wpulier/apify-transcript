@@ -54,12 +54,15 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         work_dir / "tmp" / source.source_id,
         log=lambda message: actor.log.info("%s: %s", source.name, message),
     )
+    await actor.set_status_message(f"Rendering artifacts for {source.name}")
     payloads = artifact_payloads(bundle, include_zip=config.include_zip)
+    await actor.set_status_message(f"Checking billing for {source.name}")
     billing = await charge_transcription_minutes(
         actor,
         duration or bundle.source_duration,
         required=config.require_successful_charge,
     )
+    await actor.set_status_message(f"Writing artifacts for {source.name}")
     keys = await store_artifacts(actor, source.source_id, source.name, payloads)
     row = {
         "status": "completed",

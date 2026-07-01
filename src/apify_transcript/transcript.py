@@ -553,7 +553,12 @@ def transcribe_with_provider(media_path: Path, config: TranscriptConfig, provide
         canonical, model = transcribe_elevenlabs(media_path, config)
     else:
         raise RuntimeError(f"unknown provider: {provider}")
+    log("Validating transcript quality")
     quality = validate_quality(media_path, canonical, provider, model, config.quality_mode, retry_history)
+    log(
+        "Quality %s: %s words, %s speaker(s)"
+        % (quality.get("quality_status"), quality.get("word_count"), quality.get("speaker_count"))
+    )
     return TranscriptBundle(provider=provider, model=model, canonical=canonical, quality=quality, retry_history=retry_history)
 
 

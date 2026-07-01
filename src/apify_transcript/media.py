@@ -167,6 +167,7 @@ def detect_speech_end_seconds(media_path: Path, fallback_duration: float | None)
             "-nostats",
             "-i",
             str(media_path),
+            "-vn",
             "-af",
             "silencedetect=noise=-50dB:d=2",
             "-f",
@@ -193,4 +194,3 @@ def detect_speech_end_seconds(media_path: Path, fallback_duration: float | None)
     if final_silence_start is not None and fallback_duration and fallback_duration - final_silence_start >= 30:
         return final_silence_start
     return fallback_duration
-
