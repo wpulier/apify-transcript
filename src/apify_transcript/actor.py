@@ -55,8 +55,12 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         log=lambda message: actor.log.info("%s: %s", source.name, message),
     )
     payloads = artifact_payloads(bundle, include_zip=config.include_zip)
+    billing = await charge_transcription_minutes(
+        actor,
+        duration or bundle.source_duration,
+        required=config.require_successful_charge,
+    )
     keys = await store_artifacts(actor, source.source_id, source.name, payloads)
-    billing = await charge_transcription_minutes(actor, duration or bundle.source_duration)
     row = {
         "status": "completed",
         "sourceId": source.source_id,
@@ -69,6 +73,7 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         "speakerCount": bundle.speaker_count,
         "sourceDuration": bundle.source_duration,
         "transcriptEndTime": bundle.transcript_end_time,
+        "billingEvent": billing.event_name,
         "billableMinutes": ceil_minutes(duration or bundle.source_duration),
         "charged": billing.charged,
         "chargeMessage": billing.message,
@@ -114,6 +119,10 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     "speakerCount": None,
                     "sourceDuration": None,
                     "transcriptEndTime": None,
+                    "billingEvent": None,
+                    "billableMinutes": None,
+                    "charged": False,
+                    "chargeMessage": None,
                     "artifactKeys": {},
                     "error": str(exc),
                 }
@@ -137,4 +146,3 @@ async def run(actor: object = Actor) -> dict[str, Any]:
 async def main() -> None:
     async with Actor:
         await run(Actor)
-

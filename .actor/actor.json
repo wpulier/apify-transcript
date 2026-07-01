@@ -7,6 +7,7 @@
   "buildTag": "latest",
   "input": "./INPUT_SCHEMA.json",
   "readme": "../README.md",
+  "changelog": "../CHANGELOG.md",
   "storages": {
     "dataset": "./dataset_schema.json"
   },

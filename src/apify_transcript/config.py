@@ -12,6 +12,7 @@ DEFAULT_LANGUAGE = "en"
 DEFAULT_PROVIDER = "openai"
 DEFAULT_QUALITY_MODE = "authoritative"
 DEFAULT_CONCURRENCY = 3
+DEFAULT_REQUIRE_SUCCESSFUL_CHARGE = True
 
 TRANSCRIPT_MASTER_AUDIO_BITRATE = "32k"
 TRANSCRIPT_LOW_AUDIO_BITRATE = "24k"
@@ -64,6 +65,15 @@ DEFAULT_KEYTERMS = (
 )
 
 
+def input_bool(actor_input: dict, key: str, default: bool) -> bool:
+    value = actor_input.get(key, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    return bool(value)
+
+
 @dataclass(frozen=True)
 class TranscriptConfig:
     provider: str = DEFAULT_PROVIDER
@@ -71,6 +81,7 @@ class TranscriptConfig:
     language: str = DEFAULT_LANGUAGE
     include_zip: bool = True
     concurrency: int = DEFAULT_CONCURRENCY
+    require_successful_charge: bool = DEFAULT_REQUIRE_SUCCESSFUL_CHARGE
     openai_model: str = DEFAULT_OPENAI_MODEL
     openai_fast_model: str = DEFAULT_OPENAI_FAST_MODEL
     elevenlabs_model: str = DEFAULT_ELEVENLABS_MODEL
@@ -111,8 +122,9 @@ class TranscriptConfig:
             provider=provider,
             quality_mode=quality_mode,
             language=str(actor_input.get("language") or DEFAULT_LANGUAGE),
-            include_zip=bool(actor_input.get("includeZip", True)),
+            include_zip=input_bool(actor_input, "includeZip", True),
             concurrency=concurrency,
+            require_successful_charge=input_bool(actor_input, "requireSuccessfulCharge", DEFAULT_REQUIRE_SUCCESSFUL_CHARGE),
             openai_api_key=actor_input.get("openaiApiKey") or env.get("OPENAI_API_KEY"),
             elevenlabs_api_key=actor_input.get("elevenlabsApiKey") or env.get("ELEVENLABS_API_KEY"),
             keyterms=tuple(cleaned_terms[:1000]),

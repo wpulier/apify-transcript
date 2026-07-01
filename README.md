@@ -1,23 +1,33 @@
 # Large Video to Transcript
 
-Apify Actor that converts large video and audio files into speaker-labeled transcript bundles.
+Turn large video or audio files into downloadable transcript bundles.
 
-Upload MP4, MOV, WebM, MP3, M4A, WAV, or provide direct downloadable media URLs. The Actor writes transcript artifacts to the run's default key-value store and one result row per source to the default dataset.
+Upload MP4, MOV, WebM, MP3, M4A, WAV, or provide direct downloadable media URLs. The Actor prepares the media with ffmpeg, transcribes it with OpenAI or ElevenLabs, and returns a complete artifact bundle for each file.
 
-## Outputs
+This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
+
+## What You Get
 
 Each successful source produces:
 
-- `TXT`: readable speaker-labeled transcript with timestamps
-- `JSON`: normalized transcript data with segments and words when available
+- `TXT`: readable transcript with timestamps and speaker labels
+- `JSON`: normalized transcript data with segments and word data when available
 - `SRT`: subtitle export
-- `VTT`: subtitle export
-- `quality.json`: coverage, word count, speakers, warnings, and failures
-- `ZIP`: bundle of all transcript artifacts when `includeZip` is enabled
+- `VTT`: web subtitle export
+- `quality.json`: coverage, word count, speaker count, warnings, and failures
+- `ZIP`: one downloadable bundle containing all transcript artifacts when `includeZip` is enabled
 
-The run also writes an `OUTPUT` record with the final summary.
+The Actor also writes one dataset row per source with status, provider, model, word count, speaker count, duration, billable minutes, artifact keys, and any errors.
 
-## Input
+## Why Use This Actor
+
+- Handles large video and audio files without building your own upload/transcription pipeline.
+- Produces transcript exports that are useful outside Apify: text, subtitles, JSON, and ZIP.
+- Uses speaker-aware authoritative transcription by default.
+- Includes a quality report so you can see whether the transcript looks complete.
+- Continues processing later files even if one source fails.
+
+## Input Example
 
 ```json
 {
@@ -32,16 +42,48 @@ The run also writes an `OUTPUT` record with the final summary.
 }
 ```
 
+## Provider Keys
+
 Provider keys are resolved in this order:
 
 1. Secret input field, such as `openaiApiKey`
 2. Actor environment variable, such as `OPENAI_API_KEY`
 
+If you leave provider keys empty, the Actor uses the encrypted key configured by the Actor owner when available. You can also bring your own OpenAI or ElevenLabs key through the secret input fields.
+
 ## Provider Modes
 
-- OpenAI authoritative mode uses `gpt-4o-transcribe-diarize`, diarized JSON, automatic chunking, and a chunk fallback for long files.
-- OpenAI fast mode uses `gpt-4o-mini-transcribe` and returns a quicker text-first transcript.
-- ElevenLabs mode uses Scribe v2 with diarization, word timestamps, and keyterms.
+- `openai` authoritative mode uses `gpt-4o-transcribe-diarize`, diarized JSON, automatic chunking, and chunked fallback for long files.
+- `openai` fast mode uses `gpt-4o-mini-transcribe` for quicker, lower-cost drafts.
+- `elevenlabs` mode uses Scribe v2 with diarization, word timestamps, and keyterms.
+- `auto` tries available providers and can fall back when quality validation fails.
+
+## Pricing Behavior
+
+This Actor is designed for Apify Pay Per Event pricing.
+
+The production billing event is:
+
+```text
+transcription-minute
+```
+
+It represents one started minute of successfully generated transcript output. The Actor checks the run charge limit before expensive transcription work and delivers artifacts only after the configured Apify charge succeeds.
+
+Recommended launch price:
+
+```text
+$0.08 per transcription-minute
+```
+
+The recommended price is meant to cover provider costs, platform compute, storage, large-file handling, retries, transcript formatting, subtitle generation, ZIP packaging, and quality reporting.
+
+## Limitations
+
+- Transcription quality depends on source audio quality, overlapping speakers, background noise, accents, and provider behavior.
+- Speaker labels are generic, such as `Speaker 0`, unless a future workflow maps names.
+- Direct media URLs must be downloadable by the Actor without an interactive login.
+- Upload or transcribe only media you own, are licensed to process, or otherwise have permission to process.
 
 ## Development
 
@@ -58,10 +100,3 @@ Docker build:
 ```bash
 docker build -f .actor/Dockerfile .
 ```
-
-## Monetization
-
-The code is pay-per-event ready. Once pricing is configured in Apify Console, successful transcript runs charge the `transcription-minute` event after transcript artifacts are written.
-
-Keep the Actor private until provider costs, pricing, and Store copy are finalized.
-

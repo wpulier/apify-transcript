@@ -70,6 +70,13 @@
       "maximum": 8,
       "default": 3
     },
+    "requireSuccessfulCharge": {
+      "title": "Require successful billing",
+      "description": "Production safety switch. When enabled, transcript artifacts are delivered only after the configured Apify pay-per-event charge succeeds.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true
+    },
     "openaiApiKey": {
       "title": "OpenAI API key",
       "description": "Optional. If omitted, the Actor uses its encrypted OPENAI_API_KEY environment variable.",
@@ -87,4 +94,3 @@
   },
   "required": []
 }
-

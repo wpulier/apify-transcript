@@ -6,12 +6,15 @@ from .utils import ceil_minutes
 
 
 TRANSCRIPTION_MINUTE_EVENT = "transcription-minute"
+TRANSCRIPTION_MINUTE_DESCRIPTION = "One started minute of successfully generated video or audio transcript output."
+RECOMMENDED_TRANSCRIPTION_MINUTE_PRICE_USD = 0.08
 
 
 @dataclass(frozen=True)
 class BillingResult:
     charged: bool
     minutes: int
+    event_name: str = TRANSCRIPTION_MINUTE_EVENT
     message: str | None = None
 
 
@@ -29,16 +32,24 @@ async def ensure_budget(actor: object, duration_seconds: float | None) -> None:
         )
 
 
-async def charge_transcription_minutes(actor: object, duration_seconds: float | None) -> BillingResult:
+async def charge_transcription_minutes(
+    actor: object,
+    duration_seconds: float | None,
+    *,
+    required: bool = True,
+) -> BillingResult:
     minutes = ceil_minutes(duration_seconds)
     try:
         result = await actor.charge(event_name=TRANSCRIPTION_MINUTE_EVENT, count=minutes)
     except Exception as exc:
+        if required:
+            raise RuntimeError(f"Could not charge {minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s): {exc}") from exc
         return BillingResult(charged=False, minutes=minutes, message=str(exc))
     limit_reached = getattr(result, "event_charge_limit_reached", False)
+    if limit_reached and required:
+        raise RuntimeError(f"Run charge limit reached before charging {minutes} {TRANSCRIPTION_MINUTE_EVENT} event(s)")
     return BillingResult(
         charged=not bool(limit_reached),
         minutes=minutes,
         message="charge limit reached" if limit_reached else None,
     )
-
