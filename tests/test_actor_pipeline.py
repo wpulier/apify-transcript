@@ -95,6 +95,15 @@ class InputTests(unittest.TestCase):
     def test_rejects_empty_source(self):
         with self.assertRaisesRegex(ValueError, "at least one"):
             parse_media_sources({})
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            parse_media_sources({"media": []})
+
+    def test_input_schema_requires_a_media_source(self):
+        schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
+        self.assertEqual(schema["properties"]["media"]["editor"], "fileupload")
+        self.assertEqual(schema["properties"]["media"]["minItems"], 1)
+        self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
+        self.assertEqual(schema["required"], ["media"])
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
@@ -105,6 +114,20 @@ class InputTests(unittest.TestCase):
         )
         self.assertEqual([source.source_id for source in sources], ["001", "002"])
         self.assertEqual(sources[0].name, "call.mp4")
+
+    def test_primary_media_parses_before_legacy_fields(self):
+        sources = parse_media_sources(
+            {
+                "media": ["https://example.com/primary.mp4"],
+                "mediaFiles": ["https://example.com/legacy.mp3"],
+                "mediaUrls": ["https://example.com/url.mov"],
+            }
+        )
+        self.assertEqual([source.name for source in sources], ["primary.mp4", "legacy.mp3", "url.mov"])
+
+    def test_rejects_too_many_sources(self):
+        with self.assertRaisesRegex(ValueError, "at most 10"):
+            parse_media_sources({"media": [f"https://example.com/{index}.mp4" for index in range(11)]})
 
     def test_config_uses_input_secret_before_environment(self):
         config = TranscriptConfig.from_input(
@@ -146,6 +169,16 @@ class ArtifactTests(unittest.TestCase):
         self.assertIn("quality.json", payloads)
         self.assertIn("zip", payloads)
         self.assertEqual(payloads["txt"][1], "text/plain; charset=utf-8")
+
+    def test_renders_mp3_artifact_without_duplicating_it_in_zip(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mp3 = Path(temp_dir) / "audio.mp3"
+            mp3.write_bytes(b"mp3-bytes")
+            payloads = artifact_payloads(sample_bundle(), include_zip=True, mp3_path=mp3)
+
+        self.assertEqual(payloads["mp3"], (b"mp3-bytes", "audio/mpeg"))
+        self.assertIn("zip", payloads)
+        self.assertLess(len(payloads["zip"][0]), 2000)
 
     def test_quality_flags_early_end_and_missing_speakers(self):
         canonical = {"text": "too short", "segments": [], "words": []}
@@ -217,6 +250,17 @@ class ProviderTests(unittest.TestCase):
 
 
 class ActorRunTests(unittest.TestCase):
+    def test_missing_input_writes_clean_output_summary(self):
+        fake_actor = FakeActor({})
+
+        with patch("apify_transcript.actor.require_ffmpeg"):
+            with self.assertRaisesRegex(RuntimeError, "at least one"):
+                asyncio.run(run(fake_actor))
+
+        self.assertEqual(fake_actor.values["OUTPUT"][0]["status"], "failed")
+        self.assertEqual(fake_actor.values["OUTPUT"][0]["itemCount"], 0)
+        self.assertIn("at least one", fake_actor.values["OUTPUT"][0]["error"])
+
     def test_failed_first_file_does_not_stop_second_file(self):
         fake_actor = FakeActor(
             {
@@ -241,12 +285,15 @@ class ActorRunTests(unittest.TestCase):
             with patch("apify_transcript.actor.download_source", side_effect=fake_download):
                 with patch("apify_transcript.actor.ffprobe_duration", return_value=4.0):
                     with patch("apify_transcript.actor.transcribe_media", side_effect=fake_transcribe):
-                        with self.assertRaisesRegex(RuntimeError, "1 media file"):
-                            asyncio.run(run(fake_actor))
+                        with patch("apify_transcript.actor.prepare_mp3_artifact", return_value=Path("audio.mp3")):
+                            with patch("pathlib.Path.read_bytes", return_value=b"mp3"):
+                                with self.assertRaisesRegex(RuntimeError, "1 media file"):
+                                    asyncio.run(run(fake_actor))
 
         self.assertEqual(len(fake_actor.dataset), 2)
         self.assertEqual(fake_actor.dataset[0]["status"], "failed")
         self.assertEqual(fake_actor.dataset[1]["status"], "completed")
+        self.assertEqual(fake_actor.dataset[1]["mp3Key"], "002_b.mp3")
         self.assertIn("OUTPUT", fake_actor.values)
         output = fake_actor.values["OUTPUT"][0]
         self.assertEqual(output["status"], "partial")

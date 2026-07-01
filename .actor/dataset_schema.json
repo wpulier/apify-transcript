@@ -1,5 +1,45 @@
 {
   "actorSpecification": 1,
+  "fields": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string" },
+      "sourceId": { "type": "string" },
+      "sourceName": { "type": "string" },
+      "source": { "type": "string" },
+      "provider": { "type": "string" },
+      "model": { "type": "string" },
+      "qualityStatus": { "type": ["string", "null"] },
+      "wordCount": { "type": ["integer", "null"] },
+      "speakerCount": { "type": ["integer", "null"] },
+      "sourceDuration": { "type": ["number", "null"] },
+      "durationMinutes": { "type": ["number", "null"] },
+      "transcriptEndTime": { "type": ["number", "null"] },
+      "billingEvent": { "type": ["string", "null"] },
+      "billableMinutes": { "type": ["integer", "null"] },
+      "charged": { "type": "boolean" },
+      "chargeMessage": { "type": ["string", "null"] },
+      "mp3Url": { "type": ["string", "null"] },
+      "txtUrl": { "type": ["string", "null"] },
+      "jsonUrl": { "type": ["string", "null"] },
+      "srtUrl": { "type": ["string", "null"] },
+      "vttUrl": { "type": ["string", "null"] },
+      "qualityUrl": { "type": ["string", "null"] },
+      "zipUrl": { "type": ["string", "null"] },
+      "mp3Key": { "type": ["string", "null"] },
+      "txtKey": { "type": ["string", "null"] },
+      "jsonKey": { "type": ["string", "null"] },
+      "srtKey": { "type": ["string", "null"] },
+      "vttKey": { "type": ["string", "null"] },
+      "qualityKey": { "type": ["string", "null"] },
+      "zipKey": { "type": ["string", "null"] },
+      "artifactKeys": { "type": "object" },
+      "artifactUrls": { "type": "object" },
+      "warnings": { "type": "array" },
+      "failures": { "type": "array" },
+      "error": { "type": ["string", "null"] }
+    }
+  },
   "views": {
     "overview": {
       "title": "Transcript results",
@@ -7,38 +47,29 @@
         "fields": [
           "status",
           "sourceName",
-          "provider",
-          "model",
           "qualityStatus",
+          "durationMinutes",
           "wordCount",
           "speakerCount",
-          "sourceDuration",
-          "transcriptEndTime",
-          "billingEvent",
-          "billableMinutes",
-          "charged",
-          "txtKey",
-          "zipKey",
+          "mp3Url",
+          "txtUrl",
+          "zipUrl",
           "error"
         ]
       },
       "display": {
         "component": "table",
         "properties": {
-          "status": { "label": "Status" },
-          "sourceName": { "label": "Source" },
-          "provider": { "label": "Provider" },
-          "model": { "label": "Model" },
-          "qualityStatus": { "label": "Quality" },
-          "wordCount": { "label": "Words" },
-          "speakerCount": { "label": "Speakers" },
-          "sourceDuration": { "label": "Duration" },
-          "billingEvent": { "label": "Billing event" },
-          "billableMinutes": { "label": "Billable minutes" },
-          "charged": { "label": "Charged" },
-          "txtKey": { "label": "TXT key" },
-          "zipKey": { "label": "ZIP key" },
-          "error": { "label": "Error" }
+          "status": { "label": "Status", "format": "text" },
+          "sourceName": { "label": "Source", "format": "text" },
+          "qualityStatus": { "label": "Quality", "format": "text" },
+          "durationMinutes": { "label": "Minutes", "format": "number" },
+          "wordCount": { "label": "Words", "format": "number" },
+          "speakerCount": { "label": "Speakers", "format": "number" },
+          "mp3Url": { "label": "MP3", "format": "link" },
+          "txtUrl": { "label": "Transcript", "format": "link" },
+          "zipUrl": { "label": "Bundle", "format": "link" },
+          "error": { "label": "Error", "format": "text" }
         }
       }
     }

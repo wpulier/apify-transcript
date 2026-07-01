@@ -346,6 +346,34 @@ def prepare_openai_audio(media_path: Path, temp_dir: Path) -> tuple[Path, Path |
     return master_path, master_path
 
 
+def prepare_mp3_artifact(media_path: Path, temp_dir: Path) -> Path:
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = temp_dir / f"audio_{slugify(media_path.stem)}.mp3"
+    run_command(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(media_path),
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            TRANSCRIPT_SAMPLE_RATE,
+            "-codec:a",
+            "libmp3lame",
+            "-b:a",
+            TRANSCRIPT_MASTER_AUDIO_BITRATE,
+            str(artifact_path),
+        ],
+        "ffmpeg could not prepare MP3 artifact",
+    )
+    return artifact_path
+
+
 def prepare_chunks(audio_path: Path, temp_dir: Path, segment_seconds: int) -> tuple[list[Path], Path]:
     chunk_dir = temp_dir / f"chunks_{slugify(audio_path.stem)}"
     if chunk_dir.exists():
@@ -593,7 +621,7 @@ def transcribe_media(media_path: Path, config: TranscriptConfig, temp_dir: Path,
     raise RuntimeError(str(last_error) if last_error else "transcription failed")
 
 
-def artifact_payloads(bundle: TranscriptBundle, include_zip: bool = True) -> dict[str, tuple[bytes, str]]:
+def artifact_payloads(bundle: TranscriptBundle, include_zip: bool = True, mp3_path: Path | None = None) -> dict[str, tuple[bytes, str]]:
     canonical = dict(bundle.canonical)
     canonical["quality_status"] = bundle.quality_status
     payloads = {
@@ -603,10 +631,14 @@ def artifact_payloads(bundle: TranscriptBundle, include_zip: bool = True) -> dic
         "vtt": (render_vtt(bundle.canonical).encode("utf-8"), "text/vtt; charset=utf-8"),
         "quality.json": (json.dumps(bundle.quality, ensure_ascii=False, indent=2).encode("utf-8"), "application/json; charset=utf-8"),
     }
+    if mp3_path is not None:
+        payloads["mp3"] = (mp3_path.read_bytes(), "audio/mpeg")
     if include_zip:
         buffer = io.BytesIO()
         with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
             for suffix, (content, _) in payloads.items():
+                if suffix == "mp3":
+                    continue
                 archive.writestr(f"transcript.{suffix}", content)
         payloads["zip"] = (buffer.getvalue(), "application/zip")
     return payloads

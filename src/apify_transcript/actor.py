@@ -14,7 +14,7 @@ from apify_shared.utils import create_hmac_signature
 from .billing import charge_transcription_minutes, ensure_budget
 from .config import TranscriptConfig
 from .media import download_source, ffprobe_duration, parse_media_sources, require_ffmpeg
-from .transcript import artifact_payloads, transcribe_media
+from .transcript import artifact_payloads, prepare_mp3_artifact, transcribe_media
 from .utils import ceil_minutes, slugify
 
 
@@ -90,14 +90,16 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         work_dir / "tmp" / source.source_id,
         log=lambda message: actor.log.info("%s: %s", source.name, message),
     )
-    await actor.set_status_message(f"Rendering artifacts for {source.name}")
-    payloads = artifact_payloads(bundle, include_zip=config.include_zip)
     await actor.set_status_message(f"Checking billing for {source.name}")
     billing = await charge_transcription_minutes(
         actor,
         duration or bundle.source_duration,
         required=config.require_successful_charge,
     )
+    await actor.set_status_message(f"Preparing MP3 for {source.name}")
+    mp3_path = prepare_mp3_artifact(local.path, work_dir / "tmp" / source.source_id)
+    await actor.set_status_message(f"Rendering artifacts for {source.name}")
+    payloads = artifact_payloads(bundle, include_zip=config.include_zip, mp3_path=mp3_path)
     await actor.set_status_message(f"Writing artifacts for {source.name}")
     keys = await store_artifacts(actor, source.source_id, source.name, payloads)
     await actor.set_status_message(f"Signing artifact links for {source.name}")
@@ -114,12 +116,14 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         "wordCount": bundle.word_count,
         "speakerCount": bundle.speaker_count,
         "sourceDuration": bundle.source_duration,
+        "durationMinutes": round(float(bundle.source_duration or duration or 0) / 60.0, 2) if (bundle.source_duration or duration) else None,
         "transcriptEndTime": bundle.transcript_end_time,
         "billingEvent": billing.event_name,
         "billableMinutes": ceil_minutes(duration or bundle.source_duration),
         "charged": billing.charged,
         "chargeMessage": billing.message,
         "artifactKeys": keys,
+        "mp3Key": keys.get("mp3"),
         "txtKey": keys.get("txt"),
         "jsonKey": keys.get("json"),
         "srtKey": keys.get("srt"),
@@ -127,6 +131,7 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         "qualityKey": keys.get("quality.json"),
         "zipKey": keys.get("zip"),
         "artifactUrls": urls,
+        "mp3Url": urls.get("mp3"),
         "txtUrl": urls.get("txt"),
         "jsonUrl": urls.get("json"),
         "srtUrl": urls.get("srt"),
@@ -141,11 +146,29 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
     return row
 
 
+async def fail_before_processing(actor: object, message: str) -> None:
+    summary = {
+        "status": "failed",
+        "itemCount": 0,
+        "successfulCount": 0,
+        "failedCount": 1,
+        "error": message,
+        "results": [],
+    }
+    await actor.set_value("OUTPUT", summary, content_type="application/json; charset=utf-8")
+    await actor.set_status_message(f"failed: {message}", is_terminal=True)
+
+
 async def run(actor: object = Actor) -> dict[str, Any]:
     actor_input = await actor.get_input() or {}
-    config = TranscriptConfig.from_input(actor_input, os.environ)
-    sources = parse_media_sources(actor_input)
-    require_ffmpeg()
+    try:
+        config = TranscriptConfig.from_input(actor_input, os.environ)
+        sources = parse_media_sources(actor_input)
+        require_ffmpeg()
+    except Exception as exc:
+        message = str(exc)
+        await fail_before_processing(actor, message)
+        raise RuntimeError(message) from exc
 
     results = []
     with tempfile.TemporaryDirectory(prefix="apify-transcript-") as temp_dir:
@@ -165,6 +188,7 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     "wordCount": None,
                     "speakerCount": None,
                     "sourceDuration": None,
+                    "durationMinutes": None,
                     "transcriptEndTime": None,
                     "billingEvent": None,
                     "billableMinutes": None,
@@ -172,6 +196,8 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     "chargeMessage": None,
                     "artifactKeys": {},
                     "artifactUrls": {},
+                    "mp3Key": None,
+                    "mp3Url": None,
                     "error": str(exc),
                 }
                 await actor.push_data(row)

@@ -15,6 +15,9 @@ from .config import SUPPORTED_MEDIA_EXTENSIONS
 from .utils import slugify
 
 
+MAX_MEDIA_SOURCES = 10
+
+
 @dataclass(frozen=True)
 class MediaSource:
     source_id: str
@@ -31,7 +34,7 @@ class LocalMedia:
 
 def parse_media_sources(actor_input: dict) -> list[MediaSource]:
     values: list[str] = []
-    for key in ("mediaFiles", "mediaUrls"):
+    for key in ("media", "mediaFiles", "mediaUrls"):
         raw = actor_input.get(key) or []
         if isinstance(raw, str):
             values.append(raw)
@@ -47,6 +50,8 @@ def parse_media_sources(actor_input: dict) -> list[MediaSource]:
         sources.append(MediaSource(f"{index:03d}", cleaned, guess_source_name(cleaned, index)))
     if not sources:
         raise ValueError("Provide at least one uploaded media file or direct media URL")
+    if len(sources) > MAX_MEDIA_SOURCES:
+        raise ValueError(f"Provide at most {MAX_MEDIA_SOURCES} media files or URLs per run")
     return sources
 
 

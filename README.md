@@ -1,8 +1,8 @@
 # Large Video to Transcript
 
-Turn large video or audio files into downloadable transcript bundles.
+Upload a large video or audio file and get an MP3 plus timestamped transcript exports.
 
-Upload MP4, MOV, WebM, MP3, M4A, WAV, or provide direct downloadable media URLs. The Actor prepares the media with ffmpeg, transcribes it with OpenAI or ElevenLabs, and returns a complete artifact bundle for each file.
+Upload MP4, MOV, WebM, MP3, M4A, WAV, or paste direct downloadable media URLs. The Actor prepares the media with ffmpeg, creates a normalized MP3, transcribes it with OpenAI or ElevenLabs, and returns clean signed download links for each file.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -10,6 +10,7 @@ This is built for long recordings that are painful to process manually: client c
 
 Each successful source produces:
 
+- `MP3`: normalized speech audio
 - `TXT`: readable transcript with timestamps and speaker labels
 - `JSON`: normalized transcript data with segments and word data when available
 - `SRT`: subtitle export
@@ -17,7 +18,17 @@ Each successful source produces:
 - `quality.json`: coverage, word count, speaker count, warnings, and failures
 - `ZIP`: one downloadable bundle containing all transcript artifacts when `includeZip` is enabled
 
-The Actor also writes one dataset row per source with status, provider, model, word count, speaker count, duration, billable minutes, artifact keys, and any errors.
+The Actor also writes one dataset row per source with status, quality, duration, word count, speaker count, signed MP3/transcript/ZIP links, artifact keys, billing metadata, and any errors.
+
+## How To Run
+
+1. Open the Actor input tab.
+2. Add one or more files or direct media URLs in `Media files or URLs`.
+3. Leave `Transcript provider` as OpenAI unless you want ElevenLabs.
+4. Leave `Quality mode` as Authoritative for client-ready transcripts.
+5. Click Run and download outputs from the Output tab.
+
+The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them.
 
 ## Why Use This Actor
 
@@ -31,8 +42,7 @@ The Actor also writes one dataset row per source with status, provider, model, w
 
 ```json
 {
-  "mediaFiles": [],
-  "mediaUrls": ["https://example.com/recording.mp4"],
+  "media": ["https://example.com/recording.mp4"],
   "provider": "openai",
   "qualityMode": "authoritative",
   "language": "en",

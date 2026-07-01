@@ -1,23 +1,39 @@
 {
   "title": "Large Video to Transcript",
+  "description": "Upload one or more video/audio files, or paste direct downloadable media URLs. The Actor returns an MP3 plus timestamped transcript exports for each source.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "mediaFiles": {
-      "title": "Upload video or audio files",
-      "description": "Upload MP4, MOV, WebM, MP3, M4A, WAV, or another supported media file. You can upload multiple files.",
+    "media": {
+      "title": "Media files or URLs",
+      "description": "Upload MP4, MOV, WebM, MP3, M4A, WAV, or paste direct downloadable media URLs. Add at least one item before running.",
       "type": "array",
       "editor": "fileupload",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "string"
+      }
+    },
+    "mediaFiles": {
+      "title": "Legacy uploaded media files",
+      "description": "Backward-compatible hidden field. Use media instead.",
+      "type": "array",
+      "editor": "hidden",
+      "minItems": 0,
+      "maxItems": 10,
       "items": {
         "type": "string"
       },
       "default": []
     },
     "mediaUrls": {
-      "title": "Direct media URLs",
-      "description": "Direct downloadable URLs to media files you have permission to transcribe.",
+      "title": "Legacy direct media URLs",
+      "description": "Backward-compatible hidden field. Use media instead.",
       "type": "array",
-      "editor": "stringList",
+      "editor": "hidden",
+      "minItems": 0,
+      "maxItems": 10,
       "items": {
         "type": "string"
       },
@@ -92,5 +108,5 @@
       "isSecret": true
     }
   },
-  "required": []
+  "required": ["media"]
 }
