@@ -24,10 +24,12 @@ In Apify Console:
 
 1. Open the Actor.
 2. Go to `Publication`.
-3. Complete billing and payout details if prompted.
-4. Select `Set up monetization`.
-5. Choose `Pay per event`.
-6. Add this custom event:
+3. Complete public profile setup if prompted.
+4. Complete billing details and payment method setup if prompted.
+5. Complete payout details if prompted.
+6. Select `Set up monetization`.
+7. Choose `Pay per event`.
+8. Add this custom event:
 
 ```text
 Event name: transcription-minute
@@ -36,10 +38,16 @@ Price: $0.08
 Unit: event
 ```
 
-7. Set `transcription-minute` as the primary event.
-8. Initial launch setting: enable platform usage pass-through until real run costs are measured.
-9. Set a minimum max cost per run of at least `$1.00`.
-10. Keep the Actor private until the first paid test run succeeds.
+9. Set `transcription-minute` as the primary event.
+10. Initial launch setting: enable platform usage pass-through until real run costs are measured.
+11. Set a minimum max cost per run of at least `$1.00`.
+12. Keep the Actor private until the first paid test run succeeds.
+
+Observed Console blockers on 2026-07-01:
+
+- `You need a public account to publish Actors.`
+- `Billing details and payment method not set.`
+- `Set up monetization` is disabled until those account-level requirements are completed.
 
 ## Pricing Rationale
 
@@ -86,6 +94,9 @@ Best customer segments:
 ## Before Public Launch
 
 - Rotate any Apify token that was pasted into chat or logs.
+- Complete Apify public profile setup.
+- Complete Apify billing details and payment method setup.
+- Complete Apify payout details if required.
 - Confirm `OPENAI_API_KEY` is set as an Apify secret environment variable.
 - Add `ELEVENLABS_API_KEY` if ElevenLabs fallback will be marketed.
 - Run one private paid test with a short MP4.
