@@ -32,6 +32,7 @@ jobs:
           import os
           import sys
           import time
+          import urllib.parse
           import urllib.error
           import urllib.request
 
@@ -40,15 +41,20 @@ jobs:
           media_url = os.environ["MEDIA_URL"]
           timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
 
+          def with_token(url):
+              parsed = urllib.parse.urlparse(url)
+              query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+              query.append(("token", token))
+              return urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(query)))
+
           def request_json(url, payload=None, method=None):
               data = None if payload is None else json.dumps(payload).encode("utf-8")
               headers = {
-                  "Authorization": f"Bearer {token}",
                   "Accept": "application/json",
               }
               if data is not None:
                   headers["Content-Type"] = "application/json"
-              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              req = urllib.request.Request(with_token(url), data=data, headers=headers, method=method)
               try:
                   with urllib.request.urlopen(req, timeout=60) as response:
                       return json.load(response)
