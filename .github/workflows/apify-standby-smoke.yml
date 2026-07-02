@@ -105,7 +105,7 @@ jobs:
 
           def main():
               print("Submitting Standby smoke job")
-              created = request_json(f"{standby_url}/api/jobs", {"mediaUrl": media_url}, method="POST")
+              created = request_json(f"{standby_url}/jobs", {"mediaUrl": media_url}, method="POST")
               job_id = created["jobId"]
               job_url = created["jobUrl"]
               print(f"Job ID: {job_id}")
@@ -115,7 +115,7 @@ jobs:
               last_status = None
               job = None
               while time.monotonic() < deadline:
-                  payload = request_json(f"{standby_url}/api/jobs/{job_id}")
+                  payload = request_json(f"{standby_url}/jobs/{job_id}/status")
                   job = payload["job"]
                   status = job.get("status")
                   message = job.get("message") or ""

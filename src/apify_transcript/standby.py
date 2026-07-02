@@ -82,20 +82,28 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
         if path == "/":
             self.send_html(render_home_page())
             return
-        if path.startswith("/jobs/"):
-            job_id = path.removeprefix("/jobs/").strip("/")
-            self.handle_job_page(job_id)
+        if path.startswith("/jobs/") and path.endswith("/status"):
+            job_id = path.removeprefix("/jobs/").removesuffix("/status").strip("/")
+            self.handle_job_api(job_id)
             return
         if path.startswith("/api/jobs/"):
             job_id = path.removeprefix("/api/jobs/").strip("/")
             self.handle_job_api(job_id)
             return
+        if path.startswith("/jobs/"):
+            job_id = path.removeprefix("/jobs/").strip("/")
+            self.handle_job_page(job_id)
+            return
         self.send_error_json(HTTPStatus.NOT_FOUND, "Not found")
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
-        if path == "/api/jobs":
+        if path in {"/jobs", "/api/jobs"}:
             self.handle_create_job()
+            return
+        if path.startswith("/jobs/") and path.endswith("/complete"):
+            job_id = path.removeprefix("/jobs/").removesuffix("/complete").strip("/")
+            self.handle_complete_upload(job_id)
             return
         if path.startswith("/api/jobs/") and path.endswith("/complete"):
             job_id = path.removeprefix("/api/jobs/").removesuffix("/complete").strip("/")
@@ -106,6 +114,9 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:
         path = urlparse(self.path).path
         parts = [part for part in path.split("/") if part]
+        if len(parts) == 4 and parts[0] == "jobs" and parts[2] == "chunks":
+            self.handle_upload_chunk(parts[1], parts[3])
+            return
         if len(parts) == 5 and parts[:2] == ["api", "jobs"] and parts[3] == "chunks":
             self.handle_upload_chunk(parts[2], parts[4])
             return
@@ -380,7 +391,7 @@ form.addEventListener('submit', async (event) => {
     const file = fileInput.files[0];
     if (mediaUrl) {
       setStatus('Creating transcript job...', 5);
-      const data = await jsonFetch('/api/jobs', {
+      const data = await jsonFetch('/jobs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mediaUrl })
@@ -391,7 +402,7 @@ form.addEventListener('submit', async (event) => {
     }
     if (!file) throw new Error('Choose a file or paste a media URL.');
     setStatus('Creating upload job...', 1);
-    const created = await jsonFetch('/api/jobs', {
+    const created = await jsonFetch('/jobs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ fileName: file.name, fileSize: file.size, contentType: file.type })
@@ -405,7 +416,7 @@ form.addEventListener('submit', async (event) => {
       const end = Math.min(file.size, start + chunkSize);
       const chunk = file.slice(start, end);
       setStatus(`Uploading chunk ${index + 1} / ${totalChunks}...`, Math.round((index / totalChunks) * 85));
-      await fetch(`/api/jobs/${job.jobId}/chunks/${index}`, {
+      await fetch(`/jobs/${job.jobId}/chunks/${index}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/octet-stream' },
         body: chunk
@@ -417,7 +428,7 @@ form.addEventListener('submit', async (event) => {
       });
     }
     setStatus('Starting transcript worker...', 92);
-    const completed = await jsonFetch(`/api/jobs/${job.jobId}/complete`, { method: 'POST' });
+    const completed = await jsonFetch(`/jobs/${job.jobId}/complete`, { method: 'POST' });
     setStatus('Job started. Redirecting...', 100);
     window.location.href = completed.jobUrl;
   } catch (error) {
@@ -482,7 +493,7 @@ function render(job) {
 }
 async function poll() {
   try {
-    const response = await fetch(`/api/jobs/${JOB_ID}`, { cache: 'no-store' });
+    const response = await fetch(`/jobs/${JOB_ID}/status`, { cache: 'no-store' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Job not found');
     render(data.job);

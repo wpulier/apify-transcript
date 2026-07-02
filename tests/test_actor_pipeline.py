@@ -187,7 +187,7 @@ class InputTests(unittest.TestCase):
         self.assertIn("results", output_schema["properties"])
         self.assertIn("summary", output_schema["properties"])
         self.assertIn("artifacts", output_schema["properties"])
-        self.assertIn("/api/jobs", openapi["paths"])
+        self.assertIn("/jobs", openapi["paths"])
 
     def test_deploy_workflow_sets_full_permissions_for_uploads(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
@@ -304,7 +304,7 @@ class StandbyTests(unittest.TestCase):
         self.assertIn("Submit media", html)
         self.assertIn("media-file", html)
         self.assertIn("media-url", html)
-        self.assertIn("/api/jobs", html)
+        self.assertIn("/jobs", html)
 
     def test_upload_job_chunks_materialize_for_worker(self):
         fake_client = FakeKvsClient()
@@ -342,7 +342,7 @@ class StandbyTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            url = f"http://127.0.0.1:{server.server_address[1]}/api/jobs"
+            url = f"http://127.0.0.1:{server.server_address[1]}/jobs"
             request = urllib.request.Request(
                 url,
                 data=json.dumps({"mediaUrl": "https://example.com/demo.mp4"}).encode("utf-8"),

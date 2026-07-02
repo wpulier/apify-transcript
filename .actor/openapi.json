@@ -16,7 +16,7 @@
         }
       }
     },
-    "/api/jobs": {
+    "/jobs": {
       "post": {
         "summary": "Create a transcript job",
         "requestBody": {
@@ -70,7 +70,7 @@
         }
       }
     },
-    "/api/jobs/{jobId}": {
+    "/jobs/{jobId}/status": {
       "get": {
         "summary": "Get job status",
         "parameters": [
@@ -97,7 +97,7 @@
         }
       }
     },
-    "/api/jobs/{jobId}/chunks/{index}": {
+    "/jobs/{jobId}/chunks/{index}": {
       "put": {
         "summary": "Upload one media chunk",
         "parameters": [
@@ -137,7 +137,7 @@
         }
       }
     },
-    "/api/jobs/{jobId}/complete": {
+    "/jobs/{jobId}/complete": {
       "post": {
         "summary": "Finalize upload and start transcription",
         "parameters": [

@@ -40,7 +40,7 @@ The normal Actor input tab remains available as a fallback/API-compatible batch 
 
 ## API Example
 
-Standby direct URL job:
+Standby direct URL job, `POST /jobs`:
 
 ```json
 {
