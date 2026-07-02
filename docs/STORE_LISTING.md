@@ -39,4 +39,4 @@ One event is one started minute of successfully generated transcript output.
 
 ## Icon
 
-Use `marketing/large-video-to-transcript-icon.svg` as the base icon. It is an original document, waveform, and transcript motif with no third-party marks.
+Use `marketing/large-video-to-transcript-icon-512.png` for the Apify Store icon. Keep `marketing/large-video-to-transcript-icon.png` as the full-size generated source and `marketing/large-video-to-transcript-icon.svg` as the vector fallback. The icon is an original document, waveform, play, and transcript motif with no third-party marks.
