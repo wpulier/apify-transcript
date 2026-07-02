@@ -2,7 +2,7 @@
 
 Submit a large video or audio file and get an MP3 plus timestamped transcript exports when the job is done.
 
-Open the Actor's Standby page, upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media transfer, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
+Open the Actor's Standby tab in Apify Console/Store, upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media transfer, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -22,13 +22,15 @@ The Actor also writes one dataset row per source with status, quality, duration,
 
 ## How To Run
 
-1. Open the Actor's Standby tab.
+1. Open the Actor's Standby tab in Apify Console/Store.
 2. Upload a video/audio file or paste a direct media URL.
 3. Click Submit.
 4. Keep the job link. You can leave and return while transcription runs.
 5. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the job page when complete.
 
-The normal Actor input tab remains available as a fallback/API-compatible batch runner, but the Standby page is the intended product experience. Local files still need to transfer to Apify, but the upload happens inside the job page with progress instead of a separate pre-run upload modal. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
+The normal Actor input tab remains available as a fallback/API-compatible batch runner, but the Standby page is the intended product experience. Local files still need to transfer to Apify, but the upload happens inside the job page with progress instead of a separate pre-run upload modal. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry.
+
+Apify Standby endpoints are authenticated like Apify API endpoints. In Console/Store, use the built-in Standby tab. If you open or call the `.apify.actor` URL directly, include your Apify API token with `Authorization: Bearer <APIFY_TOKEN>` or Apify's `token` query parameter. The finished MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links, so you do not need to manually add an API token to open the results after a job completes. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 
@@ -40,7 +42,16 @@ The normal Actor input tab remains available as a fallback/API-compatible batch 
 
 ## API Example
 
-Standby direct URL job, `POST /jobs`:
+Standby direct URL job, `POST /jobs` with an Apify API token:
+
+```bash
+curl -X POST "https://esteemed-chimta--large-video-to-transcript.apify.actor/jobs" \
+  -H "Authorization: Bearer $APIFY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mediaUrl":"https://example.com/recording.mp4"}'
+```
+
+Request body:
 
 ```json
 {

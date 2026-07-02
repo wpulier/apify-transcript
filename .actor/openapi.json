@@ -3,8 +3,13 @@
   "info": {
     "title": "Large Video to Transcript Standby API",
     "version": "1.0.0",
-    "description": "Submit a video/audio file or direct media URL and receive a job page with transcript artifacts when complete."
+    "description": "Submit a video/audio file or direct media URL and receive a job page with transcript artifacts when complete. Standby requests require Apify API authentication."
   },
+  "security": [
+    {
+      "apifyToken": []
+    }
+  ],
   "paths": {
     "/": {
       "get": {
@@ -186,6 +191,13 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "apifyToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Apify API token"
+      }
+    },
     "schemas": {
       "JobResponse": {
         "type": "object",
