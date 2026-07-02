@@ -63,6 +63,15 @@ jobs:
                   detail = exc.read().decode("utf-8", errors="replace")
                   raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
 
+          def request_text(url, method="GET"):
+              req = urllib.request.Request(with_token(url), method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      return response.status, response.read().decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
+
           def get_apify_json(path):
               url = f"https://api.apify.com/v2/{path.lstrip('/')}"
               return request_json(url)
@@ -104,6 +113,8 @@ jobs:
                   print_run_log_tail(run.get("id"))
 
           def main():
+              root_status, root_body = request_text(f"{standby_url}/")
+              print(f"Root probe: status={root_status}, body_prefix={root_body[:80]!r}")
               print("Submitting Standby smoke job")
               created = request_json(f"{standby_url}/jobs", {"mediaUrl": media_url}, method="POST")
               job_id = created["jobId"]

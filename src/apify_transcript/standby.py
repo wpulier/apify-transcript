@@ -74,7 +74,22 @@ class TranscriptStandbyServer(ThreadingHTTPServer):
 class TranscriptStandbyHandler(BaseHTTPRequestHandler):
     server: TranscriptStandbyServer
 
+    def do_HEAD(self) -> None:
+        path = urlparse(self.path).path
+        print(f"Standby HEAD {path}", flush=True)
+        if path == "/":
+            self.send_response(HTTPStatus.OK)
+            self.send_header("content-type", "text/plain; charset=utf-8")
+            self.send_header("content-length", "0")
+            self.end_headers()
+            return
+        self.send_response(HTTPStatus.NOT_FOUND)
+        self.send_header("content-type", "application/json; charset=utf-8")
+        self.send_header("content-length", "0")
+        self.end_headers()
+
     def do_GET(self) -> None:
+        print(f"Standby GET {urlparse(self.path).path}", flush=True)
         if self.headers.get("x-apify-container-server-readiness-probe") is not None:
             self.send_text("ready")
             return
@@ -98,6 +113,7 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        print(f"Standby POST {path}", flush=True)
         if path in {"/jobs", "/api/jobs"}:
             self.handle_create_job()
             return
@@ -113,6 +129,7 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         path = urlparse(self.path).path
+        print(f"Standby PUT {path}", flush=True)
         parts = [part for part in path.split("/") if part]
         if len(parts) == 4 and parts[0] == "jobs" and parts[2] == "chunks":
             self.handle_upload_chunk(parts[1], parts[3])
