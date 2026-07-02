@@ -19,6 +19,10 @@ on:
         description: "Abort currently running Actor runs before smoke test"
         required: true
         default: "false"
+      job_mode:
+        description: "Smoke path to test: url, upload, or both"
+        required: true
+        default: "url"
 
 jobs:
   standby-smoke:
@@ -31,6 +35,7 @@ jobs:
           MEDIA_URL: ${{ inputs.media_url }}
           TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
           RESET_RUNNING_RUNS: ${{ inputs.reset_running_runs }}
+          JOB_MODE: ${{ inputs.job_mode }}
         run: |
           python - <<'PY'
           import json
@@ -46,6 +51,7 @@ jobs:
           media_url = os.environ["MEDIA_URL"]
           timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
           reset_running_runs = os.environ.get("RESET_RUNNING_RUNS", "false").strip().lower() == "true"
+          job_mode = os.environ.get("JOB_MODE", "url").strip().lower()
           actor_id = "kTgaX3cfI6dlJHa6J"
 
           def with_token(url):
@@ -64,6 +70,23 @@ jobs:
               req = urllib.request.Request(with_token(url), data=data, headers=headers, method=method)
               try:
                   with urllib.request.urlopen(req, timeout=60) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
+
+          def request_binary_json(url, payload, method="PUT"):
+              req = urllib.request.Request(
+                  with_token(url),
+                  data=payload,
+                  headers={
+                      "Accept": "application/json",
+                      "Content-Type": "application/octet-stream",
+                  },
+                  method=method,
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as response:
                       return json.load(response)
               except urllib.error.HTTPError as exc:
                   detail = exc.read().decode("utf-8", errors="replace")
@@ -134,17 +157,44 @@ jobs:
               for run in runs[:4]:
                   print_run_log_tail(run.get("id"))
 
-          def main():
-              reset_running_actor_runs()
-              root_status, root_body = request_text(f"{standby_url}/")
-              print(f"Root probe: status={root_status}, body_prefix={root_body[:80]!r}")
-              print("Submitting Standby smoke job")
-              created = request_json(f"{standby_url}/jobs", {"mediaUrl": media_url}, method="POST")
-              job_id = created["jobId"]
-              job_url = created["jobUrl"]
-              print(f"Job ID: {job_id}")
-              print(f"Job URL: {job_url}")
+          def download_sample_media():
+              req = urllib.request.Request(media_url, headers={"Accept": "*/*"})
+              with urllib.request.urlopen(req, timeout=120) as response:
+                  content = response.read()
+                  content_type = response.headers.get("content-type") or "application/octet-stream"
+              parsed_name = os.path.basename(urllib.parse.urlparse(media_url).path) or "standby-smoke-media.mp3"
+              print(f"Downloaded sample media for upload smoke: {parsed_name}, bytes={len(content)}")
+              return parsed_name, content_type.split(";")[0], content
 
+          def submit_direct_url_job():
+              print("Submitting direct URL Standby smoke job")
+              created = request_json(f"{standby_url}/jobs", {"mediaUrl": media_url}, method="POST")
+              return created
+
+          def submit_chunked_upload_job():
+              file_name, content_type, content = download_sample_media()
+              print("Creating chunked upload Standby smoke job")
+              created = request_json(
+                  f"{standby_url}/jobs",
+                  {"fileName": file_name, "fileSize": len(content), "contentType": content_type},
+                  method="POST",
+              )
+              job = created["job"]
+              job_id = created["jobId"]
+              chunk_size = int(job["chunkSize"])
+              total_chunks = int(job["totalChunks"])
+              print(f"Upload Job ID: {job_id}")
+              print(f"Upload Job URL: {created['jobUrl']}")
+              print(f"Uploading {total_chunks} chunk(s), chunk_size={chunk_size}")
+              for index in range(total_chunks):
+                  start = index * chunk_size
+                  end = min(len(content), start + chunk_size)
+                  request_binary_json(f"{standby_url}/jobs/{job_id}/chunks/{index}", content[start:end])
+                  print(f"Uploaded chunk {index + 1}/{total_chunks}")
+              completed = request_json(f"{standby_url}/jobs/{job_id}/complete", {}, method="POST")
+              return completed
+
+          def poll_completed_job(job_id, label):
               deadline = time.monotonic() + timeout_seconds
               last_status = None
               job = None
@@ -161,36 +211,57 @@ jobs:
                   time.sleep(10)
 
               if not job:
-                  raise RuntimeError("Job status was never returned")
+                  raise RuntimeError(f"{label}: job status was never returned")
               if job.get("status") != "completed":
-                  raise RuntimeError(f"Standby smoke job did not complete: {job.get('status')} {job.get('error')}")
+                  raise RuntimeError(f"{label}: Standby smoke job did not complete: {job.get('status')} {job.get('error')}")
+              return job
 
+          def verify_completed_job(job, label):
               artifacts = job.get("artifactUrls") or {}
               required = ["mp3", "txt", "json", "srt", "vtt", "quality.json", "zip"]
               missing = [key for key in required if not artifacts.get(key)]
               if missing:
-                  raise RuntimeError(f"Missing artifact URLs: {', '.join(missing)}")
+                  raise RuntimeError(f"{label}: missing artifact URLs: {', '.join(missing)}")
 
               result = job.get("result") or {}
               print(
-                  "Completed: "
+                  f"{label} completed: "
                   f"words={result.get('wordCount')} "
                   f"speakers={result.get('speakerCount')} "
                   f"charged={result.get('charged')} "
                   f"billableMinutes={result.get('billableMinutes')}"
               )
               if result.get("charged") is not True:
-                  raise RuntimeError("Smoke job completed but was not charged")
+                  raise RuntimeError(f"{label}: smoke job completed but was not charged")
 
               for key in ("txt", "mp3", "zip"):
                   url = artifacts[key]
                   req = urllib.request.Request(url, method="GET")
                   with urllib.request.urlopen(req, timeout=60) as response:
                       if response.status >= 400:
-                          raise RuntimeError(f"Artifact {key} returned HTTP {response.status}")
+                          raise RuntimeError(f"{label}: artifact {key} returned HTTP {response.status}")
                       size = response.headers.get("content-length") or "unknown"
-                      print(f"Artifact {key}: downloadable, content-length={size}")
+                      print(f"{label} artifact {key}: downloadable, content-length={size}")
 
+          def run_smoke_path(label, submitter):
+              created = submitter()
+              job_id = created["jobId"]
+              job_url = created["jobUrl"]
+              print(f"{label} Job ID: {job_id}")
+              print(f"{label} Job URL: {job_url}")
+              job = poll_completed_job(job_id, label)
+              verify_completed_job(job, label)
+
+          def main():
+              if job_mode not in {"url", "upload", "both"}:
+                  raise RuntimeError(f"Unsupported JOB_MODE: {job_mode}")
+              reset_running_actor_runs()
+              root_status, root_body = request_text(f"{standby_url}/")
+              print(f"Root probe: status={root_status}, body_prefix={root_body[:80]!r}")
+              if job_mode in {"url", "both"}:
+                  run_smoke_path("direct URL", submit_direct_url_job)
+              if job_mode in {"upload", "both"}:
+                  run_smoke_path("chunked upload", submit_chunked_upload_job)
               print("Standby smoke test passed")
 
           try:
