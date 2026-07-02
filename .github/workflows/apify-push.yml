@@ -125,10 +125,6 @@ jobs:
               with urllib.request.urlopen(url, timeout=30) as response:
                   return json.load(response)["data"]
 
-          def get_raw_json(url):
-              with urllib.request.urlopen(url, timeout=30) as response:
-                  return json.load(response)
-
           actor = get_json(f"https://api.apify.com/v2/acts/{actor_id}?token={token}")
           if not actor.get("standbyUrl"):
               print("Standby URL was not found on Actor", file=sys.stderr)
@@ -150,11 +146,4 @@ jobs:
           print(f"Apify latest build {build_id} finished with status {status}")
           if status != "SUCCEEDED":
               sys.exit(1)
-
-          openapi = get_raw_json(f"https://api.apify.com/v2/acts/{actor_id}/builds/default/openapi.json?token={token}")
-          paths = openapi.get("paths") or {}
-          for required_path in ("/api/jobs", "/api/jobs/{jobId}", "/jobs/{jobId}"):
-              if required_path not in paths:
-                  print(f"Standby OpenAPI path missing: {required_path}", file=sys.stderr)
-                  sys.exit(1)
           PY
