@@ -156,6 +156,8 @@ class InputTests(unittest.TestCase):
         self.assertIn("Require full permissions for Console file uploads", workflow)
         self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
+        self.assertIn('"media": [', workflow)
+        self.assertIn("example_run_input_body=sample_input", workflow)
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(

@@ -52,6 +52,7 @@ jobs:
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         run: |
           python - <<'PY'
+          import json
           import os
           import sys
 
@@ -62,14 +63,31 @@ jobs:
           client = ApifyClient(token)
           actor_client = client.actor(actor_id)
           actor = actor_client.get()
-          if actor.get("actorPermissionLevel") != "FULL_PERMISSIONS":
-              actor_client.update(actor_permission_level="FULL_PERMISSIONS")
+          sample_input = json.dumps(
+              {
+                  "media": [
+                      "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
+                  ]
+              },
+              indent=2,
+          )
+          if actor.get("actorPermissionLevel") != "FULL_PERMISSIONS" or (actor.get("exampleRunInput") or {}).get("body") != sample_input:
+              actor_client.update(
+                  actor_permission_level="FULL_PERMISSIONS",
+                  example_run_input_body=sample_input,
+                  example_run_input_content_type="application/json; charset=utf-8",
+              )
               actor = actor_client.get()
 
           permission_level = actor.get("actorPermissionLevel")
           print(f"Actor permission level: {permission_level}")
           if permission_level != "FULL_PERMISSIONS":
               print("Actor permission level was not updated to FULL_PERMISSIONS", file=sys.stderr)
+              sys.exit(1)
+          example_body = (actor.get("exampleRunInput") or {}).get("body")
+          print(f"Example input: {example_body}")
+          if example_body != sample_input:
+              print("Actor example input was not updated to the primary media field", file=sys.stderr)
               sys.exit(1)
           PY
 
