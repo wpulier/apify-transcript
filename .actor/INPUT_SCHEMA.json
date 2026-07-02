@@ -13,7 +13,10 @@
       "maxItems": 10,
       "items": {
         "type": "string"
-      }
+      },
+      "prefill": [
+        "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
+      ]
     },
     "mediaFiles": {
       "title": "Legacy uploaded media files",

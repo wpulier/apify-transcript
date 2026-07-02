@@ -9,3 +9,4 @@
 - Adds Pay Per Event guard for the `transcription-minute` billing event.
 - Adds one required `media` input, signed browser artifact links, and normalized MP3 output.
 - Adds launch-ready output schema, upload-first Console copy, and $0.10/min paid beta pricing.
+- Adds a tiny prefilled sample MP3 so Apify Console task creation and Store onboarding have valid media while keeping `media` required.

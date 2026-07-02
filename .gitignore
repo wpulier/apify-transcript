@@ -20,4 +20,5 @@ outputs/
 *.wav
 *.webm
 *.zip
-
+!samples/
+!samples/large-video-to-transcript-sample.mp3

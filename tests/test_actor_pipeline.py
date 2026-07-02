@@ -114,6 +114,11 @@ class InputTests(unittest.TestCase):
         self.assertEqual(schema["properties"]["media"]["title"], "Upload media files")
         self.assertEqual(schema["properties"]["media"]["minItems"], 1)
         self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
+        self.assertEqual(
+            schema["properties"]["media"]["prefill"],
+            ["https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"],
+        )
+        self.assertTrue((Path(__file__).resolve().parents[1] / "samples" / "large-video-to-transcript-sample.mp3").exists())
         self.assertEqual(schema["properties"]["requireSuccessfulCharge"]["editor"], "hidden")
         self.assertEqual(schema["required"], ["media"])
 
