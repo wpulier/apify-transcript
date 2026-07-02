@@ -18,6 +18,8 @@ from apify_transcript.config import TranscriptConfig
 from apify_transcript.jobs import (
     JobStore,
     create_upload_job,
+    chunk_key,
+    job_key,
     materialize_ingested_media,
     record_uploaded_chunk,
     upload_is_complete,
@@ -310,6 +312,8 @@ class StandbyTests(unittest.TestCase):
         fake_client = FakeKvsClient()
         store = JobStore(fake_client)
         job = create_upload_job("demo.mp4", 6, "video/mp4", chunk_size=3)
+        self.assertNotIn("/", job_key(job["jobId"]))
+        self.assertNotIn("/", chunk_key(job["jobId"], 0))
         store.save_job(job)
         store.set_chunk(job["jobId"], 0, b"abc")
         store.set_chunk(job["jobId"], 1, b"def")

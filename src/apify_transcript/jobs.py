@@ -33,11 +33,11 @@ def validate_job_id(job_id: str) -> str:
 
 
 def job_key(job_id: str) -> str:
-    return f"jobs/{validate_job_id(job_id)}.json"
+    return f"job_{validate_job_id(job_id)}.json"
 
 
 def chunk_key(job_id: str, index: int) -> str:
-    return f"uploads/{validate_job_id(job_id)}/chunks/{index:06d}"
+    return f"upload_{validate_job_id(job_id)}_chunk_{index:06d}"
 
 
 @dataclass
