@@ -40,6 +40,7 @@ jobs:
           standby_url = os.environ["STANDBY_URL"].rstrip("/")
           media_url = os.environ["MEDIA_URL"]
           timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
+          actor_id = "kTgaX3cfI6dlJHa6J"
 
           def with_token(url):
               parsed = urllib.parse.urlparse(url)
@@ -62,58 +63,105 @@ jobs:
                   detail = exc.read().decode("utf-8", errors="replace")
                   raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
 
-          print("Submitting Standby smoke job")
-          created = request_json(f"{standby_url}/api/jobs", {"mediaUrl": media_url}, method="POST")
-          job_id = created["jobId"]
-          job_url = created["jobUrl"]
-          print(f"Job ID: {job_id}")
-          print(f"Job URL: {job_url}")
+          def get_apify_json(path):
+              url = f"https://api.apify.com/v2/{path.lstrip('/')}"
+              return request_json(url)
 
-          deadline = time.monotonic() + timeout_seconds
-          last_status = None
-          job = None
-          while time.monotonic() < deadline:
-              payload = request_json(f"{standby_url}/api/jobs/{job_id}")
-              job = payload["job"]
-              status = job.get("status")
-              message = job.get("message") or ""
-              if status != last_status:
-                  print(f"Status: {status} - {message}")
-                  last_status = status
-              if status in {"completed", "failed"}:
-                  break
-              time.sleep(10)
+          def print_run_log_tail(run_id):
+              log_url = with_token(f"https://api.apify.com/v2/logs/{run_id}")
+              try:
+                  with urllib.request.urlopen(log_url, timeout=60) as response:
+                      log_text = response.read().decode("utf-8", errors="replace")
+              except Exception as exc:
+                  print(f"Could not fetch log for {run_id}: {exc}")
+                  return
+              print(f"--- log tail for {run_id} ---")
+              print("\n".join(log_text.splitlines()[-80:]))
+              print(f"--- end log tail for {run_id} ---")
 
-          if not job:
-              raise RuntimeError("Job status was never returned")
-          if job.get("status") != "completed":
-              raise RuntimeError(f"Standby smoke job did not complete: {job.get('status')} {job.get('error')}")
+          def dump_diagnostics():
+              try:
+                  actor = get_apify_json(f"acts/{actor_id}")["data"]
+                  print("Actor diagnostics:")
+                  print(f"  standbyUrl={actor.get('standbyUrl')}")
+                  print(f"  actorStandby={json.dumps(actor.get('actorStandby'), sort_keys=True)}")
+                  print(f"  latestBuild={json.dumps((actor.get('taggedBuilds') or {}).get('latest'), sort_keys=True)}")
+              except Exception as exc:
+                  print(f"Could not fetch actor diagnostics: {exc}")
+              try:
+                  runs = get_apify_json(f"acts/{actor_id}/runs?limit=8&desc=1")["data"]["items"]
+              except Exception as exc:
+                  print(f"Could not fetch recent runs: {exc}")
+                  return
+              print("Recent runs:")
+              for run in runs:
+                  print(
+                      f"  {run.get('id')} status={run.get('status')} "
+                      f"origin={run.get('metaOrigin')} started={run.get('startedAt')} "
+                      f"finished={run.get('finishedAt')} message={run.get('statusMessage')}"
+                  )
+              for run in runs[:4]:
+                  print_run_log_tail(run.get("id"))
 
-          artifacts = job.get("artifactUrls") or {}
-          required = ["mp3", "txt", "json", "srt", "vtt", "quality.json", "zip"]
-          missing = [key for key in required if not artifacts.get(key)]
-          if missing:
-              raise RuntimeError(f"Missing artifact URLs: {', '.join(missing)}")
+          def main():
+              print("Submitting Standby smoke job")
+              created = request_json(f"{standby_url}/api/jobs", {"mediaUrl": media_url}, method="POST")
+              job_id = created["jobId"]
+              job_url = created["jobUrl"]
+              print(f"Job ID: {job_id}")
+              print(f"Job URL: {job_url}")
 
-          result = job.get("result") or {}
-          print(
-              "Completed: "
-              f"words={result.get('wordCount')} "
-              f"speakers={result.get('speakerCount')} "
-              f"charged={result.get('charged')} "
-              f"billableMinutes={result.get('billableMinutes')}"
-          )
-          if result.get("charged") is not True:
-              raise RuntimeError("Smoke job completed but was not charged")
+              deadline = time.monotonic() + timeout_seconds
+              last_status = None
+              job = None
+              while time.monotonic() < deadline:
+                  payload = request_json(f"{standby_url}/api/jobs/{job_id}")
+                  job = payload["job"]
+                  status = job.get("status")
+                  message = job.get("message") or ""
+                  if status != last_status:
+                      print(f"Status: {status} - {message}")
+                      last_status = status
+                  if status in {"completed", "failed"}:
+                      break
+                  time.sleep(10)
 
-          for key in ("txt", "mp3", "zip"):
-              url = artifacts[key]
-              req = urllib.request.Request(url, method="GET")
-              with urllib.request.urlopen(req, timeout=60) as response:
-                  if response.status >= 400:
-                      raise RuntimeError(f"Artifact {key} returned HTTP {response.status}")
-                  size = response.headers.get("content-length") or "unknown"
-                  print(f"Artifact {key}: downloadable, content-length={size}")
+              if not job:
+                  raise RuntimeError("Job status was never returned")
+              if job.get("status") != "completed":
+                  raise RuntimeError(f"Standby smoke job did not complete: {job.get('status')} {job.get('error')}")
 
-          print("Standby smoke test passed")
+              artifacts = job.get("artifactUrls") or {}
+              required = ["mp3", "txt", "json", "srt", "vtt", "quality.json", "zip"]
+              missing = [key for key in required if not artifacts.get(key)]
+              if missing:
+                  raise RuntimeError(f"Missing artifact URLs: {', '.join(missing)}")
+
+              result = job.get("result") or {}
+              print(
+                  "Completed: "
+                  f"words={result.get('wordCount')} "
+                  f"speakers={result.get('speakerCount')} "
+                  f"charged={result.get('charged')} "
+                  f"billableMinutes={result.get('billableMinutes')}"
+              )
+              if result.get("charged") is not True:
+                  raise RuntimeError("Smoke job completed but was not charged")
+
+              for key in ("txt", "mp3", "zip"):
+                  url = artifacts[key]
+                  req = urllib.request.Request(url, method="GET")
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      if response.status >= 400:
+                          raise RuntimeError(f"Artifact {key} returned HTTP {response.status}")
+                      size = response.headers.get("content-length") or "unknown"
+                      print(f"Artifact {key}: downloadable, content-length={size}")
+
+              print("Standby smoke test passed")
+
+          try:
+              main()
+          except Exception:
+              dump_diagnostics()
+              raise
           PY
