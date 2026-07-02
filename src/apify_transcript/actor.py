@@ -78,31 +78,35 @@ async def store_artifacts(actor: object, source_id: str, source_name: str, paylo
 
 
 async def process_one(actor: object, source: Any, config: TranscriptConfig, work_dir: Path) -> dict[str, Any]:
-    await actor.set_status_message(f"Preparing {source.name}")
-    local = download_source(source, work_dir / "sources", os.environ.get("APIFY_TOKEN"))
+    await actor.set_status_message(f"Downloading media: {source.name}")
+    local = download_source(
+        source,
+        work_dir / "sources",
+        os.environ.get("APIFY_TOKEN"),
+        progress_log=lambda message: actor.log.info("%s", message),
+    )
     duration = ffprobe_duration(local.path)
     await ensure_budget(actor, duration)
 
-    await actor.set_status_message(f"Transcribing {source.name}")
+    await actor.set_status_message(f"Preparing audio: {source.name}")
+    await actor.set_status_message(f"Transcribing: {source.name}")
     bundle = transcribe_media(
         local.path,
         config,
         work_dir / "tmp" / source.source_id,
         log=lambda message: actor.log.info("%s: %s", source.name, message),
     )
-    await actor.set_status_message(f"Preparing MP3 for {source.name}")
+    await actor.set_status_message(f"Packaging results: {source.name}")
     mp3_path = prepare_mp3_artifact(local.path, work_dir / "tmp" / source.source_id)
-    await actor.set_status_message(f"Rendering artifacts for {source.name}")
     payloads = artifact_payloads(bundle, include_zip=config.include_zip, mp3_path=mp3_path)
-    await actor.set_status_message(f"Checking billing for {source.name}")
+    await actor.set_status_message(f"Charging: {source.name}")
     billing = await charge_transcription_minutes(
         actor,
         duration or bundle.source_duration,
         required=config.require_successful_charge,
     )
-    await actor.set_status_message(f"Writing artifacts for {source.name}")
+    await actor.set_status_message(f"Writing output: {source.name}")
     keys = await store_artifacts(actor, source.source_id, source.name, payloads)
-    await actor.set_status_message(f"Signing artifact links for {source.name}")
     signing_secret = await default_store_signing_secret()
     urls = artifact_urls(keys, signing_secret)
     row = {
@@ -143,6 +147,7 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         "error": None,
     }
     await actor.push_data(row)
+    await actor.set_status_message(f"Done: {source.name}")
     return row
 
 

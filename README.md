@@ -1,8 +1,8 @@
 # Large Video to Transcript
 
-Upload a large video or audio file and get an MP3 plus timestamped transcript exports.
+Submit a large video or audio file and get an MP3 plus timestamped transcript exports when the run is done.
 
-Upload MP4, MOV, WebM, MP3, M4A, or WAV files. The Actor prepares the media with ffmpeg, creates a normalized MP3, transcribes it with OpenAI or ElevenLabs, and returns clean signed download links for each file.
+Upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -23,12 +23,11 @@ The Actor also writes one dataset row per source with status, quality, duration,
 ## How To Run
 
 1. Open the Actor input tab.
-2. Add one or more files in `Upload media files`.
-3. Leave `Transcript provider` as OpenAI unless you want ElevenLabs.
-4. Leave `Quality mode` as Authoritative for client-ready transcripts.
-5. Click Run and download outputs from the Output tab.
+2. Add one or more files or direct media URLs in `Submit video or audio`.
+3. Click Run.
+4. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output tab when the run finishes.
 
-The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
+Browser uploads are stored by Apify before the Actor starts. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry than uploading through the browser. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from apify_transcript.actor import artifact_url, run
 from apify_transcript.config import TranscriptConfig
-from apify_transcript.media import MediaSource, parse_media_sources
+from apify_transcript.media import MediaSource, download_url_source, parse_media_sources
 from apify_transcript.transcript import (
     TranscriptBundle,
     artifact_payloads,
@@ -111,7 +111,8 @@ class InputTests(unittest.TestCase):
     def test_input_schema_requires_a_media_source(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
         self.assertEqual(schema["properties"]["media"]["editor"], "fileupload")
-        self.assertEqual(schema["properties"]["media"]["title"], "Upload media files")
+        self.assertEqual(schema["properties"]["media"]["title"], "Submit video or audio")
+        self.assertIn("direct media URL", schema["properties"]["media"]["description"])
         self.assertEqual(schema["properties"]["media"]["minItems"], 1)
         self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
         self.assertEqual(
@@ -121,6 +122,22 @@ class InputTests(unittest.TestCase):
         self.assertTrue((Path(__file__).resolve().parents[1] / "samples" / "large-video-to-transcript-sample.mp3").exists())
         self.assertEqual(schema["properties"]["requireSuccessfulCharge"]["editor"], "hidden")
         self.assertEqual(schema["required"], ["media"])
+
+    def test_input_schema_hides_advanced_defaults(self):
+        schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
+        visible_fields = {
+            key
+            for key, value in schema["properties"].items()
+            if value.get("editor") != "hidden"
+        }
+        self.assertEqual(visible_fields, {"media"})
+        self.assertNotIn("provider", schema["properties"])
+        self.assertNotIn("qualityMode", schema["properties"])
+        self.assertEqual(schema["properties"]["language"]["default"], "en")
+        self.assertTrue(schema["properties"]["includeZip"]["default"])
+        self.assertEqual(schema["properties"]["transcriptConcurrency"]["default"], 3)
+        self.assertTrue(schema["properties"]["openaiApiKey"]["isSecret"])
+        self.assertEqual(schema["properties"]["openaiApiKey"]["editor"], "hidden")
 
     def test_actor_wires_dataset_and_output_schemas(self):
         root = Path(__file__).resolve().parents[1]
@@ -141,6 +158,35 @@ class InputTests(unittest.TestCase):
         )
         self.assertEqual([source.source_id for source in sources], ["001", "002"])
         self.assertEqual(sources[0].name, "call.mp4")
+
+    def test_direct_url_download_logs_progress(self):
+        class FakeResponse:
+            headers = {"content-length": "10", "content-type": "audio/mpeg"}
+
+            def raise_for_status(self):
+                return None
+
+            def iter_bytes(self):
+                yield b"12345"
+                yield b"67890"
+
+        class FakeStream:
+            def __enter__(self):
+                return FakeResponse()
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        messages = []
+        source = MediaSource("001", "https://example.com/demo.mp3", "demo.mp3")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("apify_transcript.media.httpx.stream", return_value=FakeStream()):
+                local = download_url_source(source, source.original, Path(temp_dir), progress_log=messages.append)
+
+            self.assertEqual(local.path.read_bytes(), b"1234567890")
+
+        self.assertTrue(any("Download started" in message for message in messages))
+        self.assertTrue(any("(100%)" in message for message in messages))
 
     def test_primary_media_parses_before_legacy_fields(self):
         sources = parse_media_sources(
@@ -297,7 +343,7 @@ class ActorRunTests(unittest.TestCase):
             }
         )
 
-        def fake_download(source, target_dir, apify_token=None):
+        def fake_download(source, target_dir, apify_token=None, progress_log=None):
             path = Path(target_dir) / f"{source.source_id}.mp4"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"media")
@@ -334,7 +380,7 @@ class ActorRunTests(unittest.TestCase):
             }
         )
 
-        def fake_download(source, target_dir, apify_token=None):
+        def fake_download(source, target_dir, apify_token=None, progress_log=None):
             path = Path(target_dir) / f"{source.source_id}.mp4"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"media")
@@ -363,7 +409,7 @@ class ActorRunTests(unittest.TestCase):
             }
         )
 
-        def fake_download(source, target_dir, apify_token=None):
+        def fake_download(source, target_dir, apify_token=None, progress_log=None):
             path = Path(target_dir) / f"{source.source_id}.mp4"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"media")
@@ -394,7 +440,7 @@ class ActorRunTests(unittest.TestCase):
             events,
         )
 
-        def fake_download(source, target_dir, apify_token=None):
+        def fake_download(source, target_dir, apify_token=None, progress_log=None):
             path = Path(target_dir) / f"{source.source_id}.mp4"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"media")

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 from urllib.parse import unquote, urlparse
 
 import httpx
@@ -16,6 +17,7 @@ from .utils import slugify
 
 
 MAX_MEDIA_SOURCES = 10
+ProgressLog = Callable[[str], None]
 
 
 @dataclass(frozen=True)
@@ -74,13 +76,18 @@ def ensure_supported_media(path: Path) -> None:
         )
 
 
-def download_source(source: MediaSource, target_dir: Path, apify_token: str | None = None) -> LocalMedia:
+def download_source(
+    source: MediaSource,
+    target_dir: Path,
+    apify_token: str | None = None,
+    progress_log: ProgressLog | None = None,
+) -> LocalMedia:
     target_dir.mkdir(parents=True, exist_ok=True)
     parsed = urlparse(source.original)
     if parsed.scheme in {"http", "https"}:
-        return download_url_source(source, source.original, target_dir, apify_token)
+        return download_url_source(source, source.original, target_dir, apify_token, progress_log)
     if parsed.scheme == "apify":
-        return download_url_source(source, apify_to_api_url(source.original), target_dir, apify_token)
+        return download_url_source(source, apify_to_api_url(source.original), target_dir, apify_token, progress_log)
     local_path = Path(source.original).expanduser()
     if local_path.exists():
         ensure_supported_media(local_path)
@@ -104,6 +111,7 @@ def download_url_source(
     url: str,
     target_dir: Path,
     apify_token: str | None = None,
+    progress_log: ProgressLog | None = None,
 ) -> LocalMedia:
     headers = {}
     if apify_token and "api.apify.com/" in url and "token=" not in url:
@@ -116,13 +124,49 @@ def download_url_source(
     with httpx.stream("GET", url, headers=headers, follow_redirects=True, timeout=300) as response:
         response.raise_for_status()
         content_type = response.headers.get("content-type") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        total_bytes = parse_content_length(response.headers.get("content-length"))
+        downloaded_bytes = 0
+        next_percent_log = 10
+        if progress_log and total_bytes:
+            progress_log(f"Download started for {source.name}: {format_bytes(total_bytes)}")
         with path.open("wb") as handle:
             for chunk in response.iter_bytes():
                 if chunk:
                     handle.write(chunk)
+                    downloaded_bytes += len(chunk)
+                    if progress_log and total_bytes:
+                        percent = min(100, int(downloaded_bytes * 100 / total_bytes))
+                        if percent >= next_percent_log or downloaded_bytes >= total_bytes:
+                            progress_log(
+                                f"Downloading {source.name}: {format_bytes(downloaded_bytes)} / {format_bytes(total_bytes)} ({percent}%)"
+                            )
+                            while next_percent_log <= percent:
+                                next_percent_log += 10
+        if progress_log and not total_bytes:
+            progress_log(f"Downloaded {source.name}: {format_bytes(downloaded_bytes)}")
     if path.suffix.lower() in SUPPORTED_MEDIA_EXTENSIONS:
         ensure_supported_media(path)
     return LocalMedia(source=source, path=path, content_type=content_type)
+
+
+def parse_content_length(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        parsed = int(value)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
+
+def format_bytes(value: int) -> str:
+    size = float(value)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1024
 
 
 def require_ffmpeg() -> None:

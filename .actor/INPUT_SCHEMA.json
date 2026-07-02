@@ -1,12 +1,12 @@
 {
   "title": "Large Video to Transcript",
-  "description": "Upload one or more video/audio files. The Actor returns an MP3 plus timestamped transcript exports for each source.",
+  "description": "Submit a video or audio file. We create the MP3, timestamped transcript exports, quality report, and ZIP bundle.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "media": {
-      "title": "Upload media files",
-      "description": "Upload MP4, MOV, WebM, MP3, M4A, or WAV files. Add at least one file before running.",
+      "title": "Submit video or audio",
+      "description": "Upload a file or paste a direct media URL. For files over 500 MB, a direct URL is faster than browser upload.",
       "type": "array",
       "editor": "fileupload",
       "minItems": 1,
@@ -42,49 +42,32 @@
       },
       "default": []
     },
-    "provider": {
-      "title": "Transcript provider",
-      "description": "OpenAI is the default. Auto uses OpenAI when available, then ElevenLabs.",
-      "type": "string",
-      "editor": "select",
-      "enum": ["openai", "elevenlabs", "auto"],
-      "enumTitles": ["OpenAI", "ElevenLabs", "Auto"],
-      "default": "openai"
-    },
-    "qualityMode": {
-      "title": "Quality mode",
-      "description": "Authoritative creates speaker-labeled transcript bundles. Fast creates a quicker text-first transcript.",
-      "type": "string",
-      "editor": "select",
-      "enum": ["authoritative", "fast"],
-      "enumTitles": ["Authoritative", "Fast"],
-      "default": "authoritative"
-    },
     "language": {
       "title": "Language",
       "description": "Language hint such as en. Leave empty only when you want provider auto-detection.",
       "type": "string",
-      "editor": "textfield",
+      "editor": "hidden",
       "default": "en"
     },
     "keyterms": {
       "title": "Key terms",
       "description": "Domain-specific names or terms, one per line. Used by providers that support glossary/keyterm prompting.",
       "type": "string",
-      "editor": "textarea"
+      "editor": "hidden",
+      "default": ""
     },
     "includeZip": {
       "title": "Create ZIP bundle",
       "description": "Include TXT, JSON, SRT, VTT, and quality report in a downloadable ZIP.",
       "type": "boolean",
-      "editor": "checkbox",
+      "editor": "hidden",
       "default": true
     },
     "transcriptConcurrency": {
       "title": "Chunk concurrency",
       "description": "Concurrent provider requests for chunked long-audio transcription.",
       "type": "integer",
-      "editor": "number",
+      "editor": "hidden",
       "minimum": 1,
       "maximum": 8,
       "default": 3
@@ -100,14 +83,14 @@
       "title": "OpenAI API key",
       "description": "Optional. If omitted, the Actor uses its encrypted OPENAI_API_KEY environment variable.",
       "type": "string",
-      "editor": "textfield",
+      "editor": "hidden",
       "isSecret": true
     },
     "elevenlabsApiKey": {
       "title": "ElevenLabs API key",
       "description": "Optional. If omitted, the Actor uses its encrypted ELEVENLABS_API_KEY environment variable.",
       "type": "string",
-      "editor": "textfield",
+      "editor": "hidden",
       "isSecret": true
     }
   },
