@@ -2,7 +2,9 @@ import asyncio
 import json
 import sys
 import tempfile
+import threading
 import unittest
+import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -13,7 +15,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from apify_transcript.actor import artifact_url, run
 from apify_transcript.config import TranscriptConfig
+from apify_transcript.jobs import (
+    JobStore,
+    create_upload_job,
+    materialize_ingested_media,
+    record_uploaded_chunk,
+    upload_is_complete,
+    worker_input_for_job,
+)
 from apify_transcript.media import MediaSource, download_url_source, parse_media_sources
+from apify_transcript.standby import TranscriptStandbyHandler, TranscriptStandbyServer, is_standby_origin, render_home_page
 from apify_transcript.transcript import (
     TranscriptBundle,
     artifact_payloads,
@@ -71,6 +82,36 @@ class OrderTrackingActor(FakeActor):
     async def charge(self, event_name, count=1):
         self.events.append("charge")
         return await super().charge(event_name, count)
+
+
+class FakeKvsClient:
+    def __init__(self):
+        self.records = {}
+
+    def get_record(self, key):
+        if key not in self.records:
+            return None
+        return {"key": key, "value": self.records[key][0], "content_type": self.records[key][1]}
+
+    def get_record_as_bytes(self, key):
+        if key not in self.records:
+            return None
+        value, content_type = self.records[key]
+        if isinstance(value, bytes):
+            body = value
+        elif isinstance(value, str):
+            body = value.encode("utf-8")
+        else:
+            body = json.dumps(value).encode("utf-8")
+        return {"key": key, "value": body, "content_type": content_type}
+
+    def set_record(self, key, value, content_type=None):
+        self.records[key] = (value, content_type)
+
+
+class FakeApifyClient:
+    def actor(self, actor_id):
+        return SimpleNamespace(start=lambda **kwargs: {"id": "run123"})
 
 
 def sample_canonical():
@@ -138,11 +179,15 @@ class InputTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         actor = json.loads((root / ".actor" / "actor.json").read_text())
         output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
+        openapi = json.loads((root / ".actor" / "openapi.json").read_text())
+        self.assertTrue(actor["usesStandbyMode"])
+        self.assertEqual(actor["webServerSchema"], "./openapi.json")
         self.assertEqual(actor["output"], "./output_schema.json")
         self.assertEqual(actor["storages"]["dataset"], "./dataset_schema.json")
         self.assertIn("results", output_schema["properties"])
         self.assertIn("summary", output_schema["properties"])
         self.assertIn("artifacts", output_schema["properties"])
+        self.assertIn("/api/jobs", openapi["paths"])
 
     def test_deploy_workflow_sets_full_permissions_for_uploads(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
@@ -151,6 +196,8 @@ class InputTests(unittest.TestCase):
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
         self.assertIn('"media": [', workflow)
         self.assertIn("example_run_input_body=sample_input", workflow)
+        self.assertIn("actor_standby_is_enabled=True", workflow)
+        self.assertIn("standbyUrl", workflow)
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
@@ -242,6 +289,75 @@ class InputTests(unittest.TestCase):
     def test_config_allows_private_charge_override(self):
         config = TranscriptConfig.from_input({"requireSuccessfulCharge": False}, {"OPENAI_API_KEY": "env-key"})
         self.assertFalse(config.require_successful_charge)
+
+
+class StandbyTests(unittest.TestCase):
+    def test_standby_origin_detection(self):
+        actor = SimpleNamespace(configuration=SimpleNamespace(meta_origin="STANDBY"))
+        self.assertTrue(is_standby_origin(actor))
+        actor = SimpleNamespace(configuration=SimpleNamespace(meta_origin="WEBHOOK"))
+        with patch.dict("os.environ", {"APIFY_META_ORIGIN": "STANDBY"}):
+            self.assertTrue(is_standby_origin(actor))
+
+    def test_home_page_renders_submit_controls(self):
+        html = render_home_page()
+        self.assertIn("Submit media", html)
+        self.assertIn("media-file", html)
+        self.assertIn("media-url", html)
+        self.assertIn("/api/jobs", html)
+
+    def test_upload_job_chunks_materialize_for_worker(self):
+        fake_client = FakeKvsClient()
+        store = JobStore(fake_client)
+        job = create_upload_job("demo.mp4", 6, "video/mp4", chunk_size=3)
+        store.save_job(job)
+        store.set_chunk(job["jobId"], 0, b"abc")
+        store.set_chunk(job["jobId"], 1, b"def")
+        record_uploaded_chunk(job, 0, 3)
+        record_uploaded_chunk(job, 1, 3)
+        store.save_job(job)
+        self.assertTrue(upload_is_complete(job))
+        self.assertIn("media", worker_input_for_job(job))
+        self.assertIn("ingestedMedia", worker_input_for_job(job))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("apify_transcript.jobs.JobStore.from_token", return_value=store):
+                path = materialize_ingested_media(
+                    {
+                        "jobId": job["jobId"],
+                        "storeName": "fake",
+                        "fileName": "demo.mp4",
+                        "totalChunks": 2,
+                    },
+                    Path(temp_dir),
+                    "token",
+                )
+            self.assertEqual(path.read_bytes(), b"abcdef")
+
+    def test_standby_direct_url_job_starts_worker(self):
+        fake_store = JobStore(FakeKvsClient())
+        with patch("apify_transcript.standby.JobStore.from_token", return_value=fake_store):
+            server = TranscriptStandbyServer(("127.0.0.1", 0), TranscriptStandbyHandler, token="token", actor_id="actor123", job_store_name="fake")
+        server.apify_client = FakeApifyClient()
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_address[1]}/api/jobs"
+            request = urllib.request.Request(
+                url,
+                data=json.dumps({"mediaUrl": "https://example.com/demo.mp4"}).encode("utf-8"),
+                headers={"content-type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        self.assertEqual(payload["job"]["status"], "queued")
+        self.assertEqual(payload["job"]["runId"], "run123")
+        self.assertIn("/jobs/", payload["jobUrl"])
 
 
 class ArtifactTests(unittest.TestCase):

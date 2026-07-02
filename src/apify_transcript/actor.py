@@ -13,7 +13,8 @@ from apify_shared.utils import create_hmac_signature
 
 from .billing import charge_transcription_minutes, ensure_budget
 from .config import TranscriptConfig
-from .media import download_source, ffprobe_duration, parse_media_sources, require_ffmpeg
+from .jobs import JOB_STORE_NAME, JobStore, materialize_ingested_media
+from .media import MediaSource, download_source, ensure_supported_media, ffprobe_duration, parse_media_sources, require_ffmpeg
 from .transcript import artifact_payloads, prepare_mp3_artifact, transcribe_media
 from .utils import ceil_minutes, slugify
 
@@ -164,23 +165,84 @@ async def fail_before_processing(actor: object, message: str) -> None:
     await actor.set_status_message(f"failed: {message}", is_terminal=True)
 
 
+def standby_job_store(actor_input: dict[str, Any]) -> tuple[JobStore, str] | None:
+    ref = actor_input.get("standbyJob") or {}
+    job_id = ref.get("jobId")
+    if not job_id:
+        return None
+    token = os.environ.get("APIFY_TOKEN") or ""
+    store_name = ref.get("storeName") or JOB_STORE_NAME
+    return JobStore.from_token(token, store_name), str(job_id)
+
+
+def patch_standby_job(ref: tuple[JobStore, str] | None, **updates: Any) -> None:
+    if not ref:
+        return
+    store, job_id = ref
+    try:
+        store.patch_job(job_id, **updates)
+    except Exception:
+        return
+
+
+def actor_run_url() -> str | None:
+    run_id = os.environ.get("APIFY_ACTOR_RUN_ID")
+    if not run_id:
+        return None
+    return f"https://console.apify.com/actors/{os.environ.get('APIFY_ACTOR_ID') or ACTOR_ID}/runs/{run_id}"
+
+
+def source_from_ingested_media(actor_input: dict[str, Any], work_dir: Path) -> MediaSource | None:
+    spec = actor_input.get("ingestedMedia")
+    if not spec:
+        return None
+    path = materialize_ingested_media(spec, work_dir / "ingested", os.environ.get("APIFY_TOKEN") or "")
+    ensure_supported_media(path)
+    return MediaSource("001", str(path), str(spec.get("fileName") or path.name))
+
+
 async def run(actor: object = Actor) -> dict[str, Any]:
     actor_input = await actor.get_input() or {}
+    standby_ref = standby_job_store(actor_input)
     try:
         config = TranscriptConfig.from_input(actor_input, os.environ)
-        sources = parse_media_sources(actor_input)
         require_ffmpeg()
     except Exception as exc:
         message = str(exc)
         await fail_before_processing(actor, message)
+        patch_standby_job(standby_ref, status="failed", error=message, message=message)
         raise RuntimeError(message) from exc
 
     results = []
     with tempfile.TemporaryDirectory(prefix="apify-transcript-") as temp_dir:
         work_dir = Path(temp_dir)
+        try:
+            ingested_source = source_from_ingested_media(actor_input, work_dir)
+            sources = [ingested_source] if ingested_source else parse_media_sources(actor_input)
+        except Exception as exc:
+            message = str(exc)
+            await fail_before_processing(actor, message)
+            patch_standby_job(standby_ref, status="failed", error=message, message=message, runUrl=actor_run_url())
+            raise RuntimeError(message) from exc
+        patch_standby_job(
+            standby_ref,
+            status="processing",
+            message="Transcription is running.",
+            runId=os.environ.get("APIFY_ACTOR_RUN_ID"),
+            runUrl=actor_run_url(),
+        )
         for source in sources:
             try:
-                results.append(await process_one(actor, source, config, work_dir))
+                row = await process_one(actor, source, config, work_dir)
+                results.append(row)
+                patch_standby_job(
+                    standby_ref,
+                    status="completed",
+                    message="Transcript artifacts are ready.",
+                    result=row,
+                    artifactUrls=row.get("artifactUrls", {}),
+                    error=None,
+                )
             except Exception as exc:
                 row = {
                     "status": "failed",
@@ -207,6 +269,14 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                 }
                 await actor.push_data(row)
                 results.append(row)
+                patch_standby_job(
+                    standby_ref,
+                    status="failed",
+                    message="Transcript job failed.",
+                    error=str(exc),
+                    result=row,
+                    artifactUrls={},
+                )
 
     summary = {
         "status": "completed" if all(item["status"] == "completed" for item in results) else "partial" if any(item["status"] == "completed" for item in results) else "failed",
@@ -224,4 +294,9 @@ async def run(actor: object = Actor) -> dict[str, Any]:
 
 async def main() -> None:
     async with Actor:
-        await run(Actor)
+        from .standby import is_standby_origin, serve_standby
+
+        if is_standby_origin(Actor):
+            serve_standby(Actor)
+        else:
+            await run(Actor)

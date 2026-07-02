@@ -13,3 +13,4 @@
 - Simplifies the public input form to one submit field, hides advanced defaults, and adds URL download progress logs.
 - Requires full Actor permissions during deployment so Console-uploaded media files can be read from Apify storage, with a clearer uploaded-file permission error if access is denied.
 - Removes provider-key/provider-mode controls from the public product surface so paid users can submit media and receive managed transcript outputs without bringing API keys.
+- Adds Apify Standby job UX with a simple submit page, direct URL jobs, chunked browser uploads, job status polling, and result links.

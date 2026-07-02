@@ -1,8 +1,8 @@
 # Large Video to Transcript
 
-Submit a large video or audio file and get an MP3 plus timestamped transcript exports when the run is done.
+Submit a large video or audio file and get an MP3 plus timestamped transcript exports when the job is done.
 
-Upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
+Open the Actor's Standby page, upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media transfer, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -22,12 +22,13 @@ The Actor also writes one dataset row per source with status, quality, duration,
 
 ## How To Run
 
-1. Open the Actor input tab.
-2. Add one or more files or direct media URLs in `Submit video or audio`.
-3. Click Run.
-4. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output tab when the run finishes.
+1. Open the Actor's Standby tab.
+2. Upload a video/audio file or paste a direct media URL.
+3. Click Submit.
+4. Keep the job link. You can leave and return while transcription runs.
+5. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the job page when complete.
 
-Browser uploads are stored by Apify before the Actor starts. The Actor may ask for one-time permission approval so it can read the uploaded source file from your Apify storage and write the transcript artifacts back to the run. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry than uploading through the browser. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
+The normal Actor input tab remains available as a fallback/API-compatible batch runner, but the Standby page is the intended product experience. Local files still need to transfer to Apify, but the upload happens inside the job page with progress instead of a separate pre-run upload modal. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 
@@ -38,6 +39,16 @@ Browser uploads are stored by Apify before the Actor starts. The Actor may ask f
 - Continues processing later files even if one source fails.
 
 ## API Example
+
+Standby direct URL job:
+
+```json
+{
+  "mediaUrl": "https://example.com/recording.mp4"
+}
+```
+
+Normal Actor fallback input:
 
 ```json
 {

@@ -39,7 +39,9 @@ jobs:
           token: ${{ secrets.APIFY_TOKEN }}
 
       - name: Validate Apify input schema
-        run: apify validate-schema .actor/INPUT_SCHEMA.json
+        run: |
+          apify validate-schema .actor/INPUT_SCHEMA.json
+          python -m json.tool .actor/openapi.json >/dev/null
 
       - name: Push to Apify
         env:
@@ -71,11 +73,20 @@ jobs:
               },
               indent=2,
           )
-          if actor.get("actorPermissionLevel") != "FULL_PERMISSIONS" or (actor.get("exampleRunInput") or {}).get("body") != sample_input:
+          standby = actor.get("actorStandby") or {}
+          if (
+              actor.get("actorPermissionLevel") != "FULL_PERMISSIONS"
+              or (actor.get("exampleRunInput") or {}).get("body") != sample_input
+              or not standby.get("isEnabled")
+          ):
               actor_client.update(
                   actor_permission_level="FULL_PERMISSIONS",
                   example_run_input_body=sample_input,
                   example_run_input_content_type="application/json; charset=utf-8",
+                  actor_standby_is_enabled=True,
+                  actor_standby_build="latest",
+                  actor_standby_memory_mbytes=2048,
+                  actor_standby_idle_timeout_secs=300,
               )
               actor = actor_client.get()
 
@@ -88,6 +99,11 @@ jobs:
           print(f"Example input: {example_body}")
           if example_body != sample_input:
               print("Actor example input was not updated to the primary media field", file=sys.stderr)
+              sys.exit(1)
+          standby = actor.get("actorStandby") or {}
+          print(f"Standby enabled: {standby.get('isEnabled')}")
+          if not standby.get("isEnabled"):
+              print("Actor Standby was not enabled", file=sys.stderr)
               sys.exit(1)
           PY
 
@@ -109,7 +125,15 @@ jobs:
               with urllib.request.urlopen(url, timeout=30) as response:
                   return json.load(response)["data"]
 
+          def get_raw_json(url):
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  return json.load(response)
+
           actor = get_json(f"https://api.apify.com/v2/acts/{actor_id}?token={token}")
+          if not actor.get("standbyUrl"):
+              print("Standby URL was not found on Actor", file=sys.stderr)
+              sys.exit(1)
+          print(f"Apify Standby URL: {actor.get('standbyUrl')}")
           latest = (actor.get("taggedBuilds") or {}).get("latest") or {}
           build_id = latest.get("buildId")
           if not build_id:
@@ -126,4 +150,11 @@ jobs:
           print(f"Apify latest build {build_id} finished with status {status}")
           if status != "SUCCEEDED":
               sys.exit(1)
+
+          openapi = get_raw_json(f"https://api.apify.com/v2/acts/{actor_id}/builds/default/openapi.json?token={token}")
+          paths = openapi.get("paths") or {}
+          for required_path in ("/", "/api/jobs", "/api/jobs/{jobId}", "/jobs/{jobId}"):
+              if required_path not in paths:
+                  print(f"Standby OpenAPI path missing: {required_path}", file=sys.stderr)
+                  sys.exit(1)
           PY

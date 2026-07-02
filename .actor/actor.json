@@ -9,6 +9,8 @@
   "output": "./output_schema.json",
   "readme": "../README.md",
   "changelog": "../CHANGELOG.md",
+  "usesStandbyMode": true,
+  "webServerSchema": "./openapi.json",
   "storages": {
     "dataset": "./dataset_schema.json"
   },
