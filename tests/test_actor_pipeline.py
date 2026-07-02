@@ -122,24 +122,17 @@ class InputTests(unittest.TestCase):
             ["https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"],
         )
         self.assertTrue((Path(__file__).resolve().parents[1] / "samples" / "large-video-to-transcript-sample.mp3").exists())
-        self.assertEqual(schema["properties"]["requireSuccessfulCharge"]["editor"], "hidden")
         self.assertEqual(schema["required"], ["media"])
 
-    def test_input_schema_hides_advanced_defaults(self):
+    def test_input_schema_only_exposes_media(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
-        visible_fields = {
-            key
-            for key, value in schema["properties"].items()
-            if value.get("editor") != "hidden"
-        }
-        self.assertEqual(visible_fields, {"media"})
+        self.assertEqual(set(schema["properties"]), {"media"})
+        self.assertNotIn("mediaFiles", schema["properties"])
+        self.assertNotIn("mediaUrls", schema["properties"])
         self.assertNotIn("provider", schema["properties"])
         self.assertNotIn("qualityMode", schema["properties"])
-        self.assertEqual(schema["properties"]["language"]["default"], "en")
-        self.assertTrue(schema["properties"]["includeZip"]["default"])
-        self.assertEqual(schema["properties"]["transcriptConcurrency"]["default"], 3)
-        self.assertTrue(schema["properties"]["openaiApiKey"]["isSecret"])
-        self.assertEqual(schema["properties"]["openaiApiKey"]["editor"], "hidden")
+        self.assertNotIn("openaiApiKey", schema["properties"])
+        self.assertNotIn("elevenlabsApiKey", schema["properties"])
 
     def test_actor_wires_dataset_and_output_schemas(self):
         root = Path(__file__).resolve().parents[1]

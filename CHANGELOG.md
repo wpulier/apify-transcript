@@ -12,3 +12,4 @@
 - Adds a tiny prefilled sample MP3 so Apify Console task creation and Store onboarding have valid media while keeping `media` required.
 - Simplifies the public input form to one submit field, hides advanced defaults, and adds URL download progress logs.
 - Requires full Actor permissions during deployment so Console-uploaded media files can be read from Apify storage, with a clearer uploaded-file permission error if access is denied.
+- Removes provider-key/provider-mode controls from the public product surface so paid users can submit media and receive managed transcript outputs without bringing API keys.

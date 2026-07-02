@@ -41,31 +41,15 @@ Browser uploads are stored by Apify before the Actor starts. The Actor may ask f
 
 ```json
 {
-  "media": ["https://example.com/recording.mp4"],
-  "provider": "openai",
-  "qualityMode": "authoritative",
-  "language": "en",
-  "keyterms": "AgentX\nREPC\nMLS",
-  "includeZip": true,
-  "transcriptConcurrency": 3
+  "media": ["https://example.com/recording.mp4"]
 }
 ```
 
-## Provider Keys
+## Managed Transcription
 
-Provider keys are resolved in this order:
+No provider account or API key is required. The managed transcription provider is included in the Actor price, so users can call the Actor like an API: submit media and receive MP3, transcript, subtitle, JSON, quality, and ZIP outputs.
 
-1. Secret input field, such as `openaiApiKey`
-2. Actor environment variable, such as `OPENAI_API_KEY`
-
-If you leave provider keys empty, the Actor uses the encrypted key configured by the Actor owner when available. You can also bring your own OpenAI or ElevenLabs key through the secret input fields.
-
-## Provider Modes
-
-- `openai` authoritative mode uses `gpt-4o-transcribe-diarize`, diarized JSON, automatic chunking, and chunked fallback for long files.
-- `openai` fast mode uses `gpt-4o-mini-transcribe` for quicker, lower-cost drafts.
-- `elevenlabs` mode uses Scribe v2 with diarization, word timestamps, and keyterms.
-- `auto` tries available providers and can fall back when quality validation fails.
+Provider selection, audio preparation, chunking, retries, and quality checks are handled inside the Actor. Advanced provider overrides may be used for private testing, but they are not part of the public product surface.
 
 ## Pricing Behavior
 
