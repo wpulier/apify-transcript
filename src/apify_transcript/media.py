@@ -122,7 +122,10 @@ def download_url_source(
     filename = f"{source.source_id}_{slugify(Path(source.name).stem, 'media')}{suffix or '.media'}"
     path = target_dir / filename
     with httpx.stream("GET", url, headers=headers, follow_redirects=True, timeout=300) as response:
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise_download_error(source, url, exc)
         content_type = response.headers.get("content-type") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
         total_bytes = parse_content_length(response.headers.get("content-length"))
         downloaded_bytes = 0
@@ -147,6 +150,21 @@ def download_url_source(
     if path.suffix.lower() in SUPPORTED_MEDIA_EXTENSIONS:
         ensure_supported_media(path)
     return LocalMedia(source=source, path=path, content_type=content_type)
+
+
+def raise_download_error(source: MediaSource, url: str, exc: httpx.HTTPStatusError) -> None:
+    if exc.response.status_code == 403 and is_apify_key_value_record_url(url):
+        raise PermissionError(
+            "Could not read the uploaded Apify file. Approve the Actor's file/storage permissions and rerun, "
+            "or paste a direct downloadable media URL in Submit video or audio. "
+            f"Source: {source.name}"
+        ) from exc
+    raise exc
+
+
+def is_apify_key_value_record_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.netloc == "api.apify.com" and "/key-value-stores/" in parsed.path and "/records/" in parsed.path
 
 
 def parse_content_length(value: str | None) -> int | None:

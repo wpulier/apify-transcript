@@ -7,6 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from apify_transcript.actor import artifact_url, run
@@ -149,6 +151,12 @@ class InputTests(unittest.TestCase):
         self.assertIn("summary", output_schema["properties"])
         self.assertIn("artifacts", output_schema["properties"])
 
+    def test_deploy_workflow_sets_full_permissions_for_uploads(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
+        self.assertIn("Require full permissions for Console file uploads", workflow)
+        self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
+        self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
+
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
             {
@@ -187,6 +195,29 @@ class InputTests(unittest.TestCase):
 
         self.assertTrue(any("Download started" in message for message in messages))
         self.assertTrue(any("(100%)" in message for message in messages))
+
+    def test_apify_upload_403_has_clear_message(self):
+        class FakeResponse:
+            status_code = 403
+            headers = {}
+
+            def raise_for_status(self):
+                request = httpx.Request("GET", "https://api.apify.com/v2/key-value-stores/store/records/demo.mp4")
+                response = httpx.Response(403, request=request)
+                raise httpx.HTTPStatusError("forbidden", request=request, response=response)
+
+        class FakeStream:
+            def __enter__(self):
+                return FakeResponse()
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        source = MediaSource("001", "https://api.apify.com/v2/key-value-stores/store/records/demo.mp4", "demo.mp4")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("apify_transcript.media.httpx.stream", return_value=FakeStream()):
+                with self.assertRaisesRegex(PermissionError, "Approve the Actor's file/storage permissions"):
+                    download_url_source(source, source.original, Path(temp_dir), progress_log=lambda _: None)
 
     def test_primary_media_parses_before_legacy_fields(self):
         sources = parse_media_sources(

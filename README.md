@@ -27,7 +27,7 @@ The Actor also writes one dataset row per source with status, quality, duration,
 3. Click Run.
 4. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output tab when the run finishes.
 
-Browser uploads are stored by Apify before the Actor starts. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry than uploading through the browser. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
+Browser uploads are stored by Apify before the Actor starts. The Actor may ask for one-time permission approval so it can read the uploaded source file from your Apify storage and write the transcript artifacts back to the run. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry than uploading through the browser. The MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links. You do not need to manually add an API token to open them. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 
