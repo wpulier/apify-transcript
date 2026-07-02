@@ -15,6 +15,10 @@ on:
         description: "Maximum seconds to wait for completion"
         required: true
         default: "900"
+      reset_running_runs:
+        description: "Abort currently running Actor runs before smoke test"
+        required: true
+        default: "false"
 
 jobs:
   standby-smoke:
@@ -26,6 +30,7 @@ jobs:
           STANDBY_URL: ${{ inputs.standby_url }}
           MEDIA_URL: ${{ inputs.media_url }}
           TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+          RESET_RUNNING_RUNS: ${{ inputs.reset_running_runs }}
         run: |
           python - <<'PY'
           import json
@@ -40,6 +45,7 @@ jobs:
           standby_url = os.environ["STANDBY_URL"].rstrip("/")
           media_url = os.environ["MEDIA_URL"]
           timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
+          reset_running_runs = os.environ.get("RESET_RUNNING_RUNS", "false").strip().lower() == "true"
           actor_id = "kTgaX3cfI6dlJHa6J"
 
           def with_token(url):
@@ -75,6 +81,22 @@ jobs:
           def get_apify_json(path):
               url = f"https://api.apify.com/v2/{path.lstrip('/')}"
               return request_json(url)
+
+          def post_apify_json(path):
+              url = f"https://api.apify.com/v2/{path.lstrip('/')}"
+              return request_json(url, {}, method="POST")
+
+          def reset_running_actor_runs():
+              if not reset_running_runs:
+                  return
+              runs = get_apify_json(f"acts/{actor_id}/runs?limit=8&desc=1")["data"]["items"]
+              running = [run for run in runs if run.get("status") == "RUNNING"]
+              for run in running:
+                  run_id = run["id"]
+                  print(f"Aborting running run before smoke test: {run_id}")
+                  post_apify_json(f"actor-runs/{run_id}/abort")
+              if running:
+                  time.sleep(15)
 
           def print_run_log_tail(run_id):
               log_url = with_token(f"https://api.apify.com/v2/logs/{run_id}")
@@ -113,6 +135,7 @@ jobs:
                   print_run_log_tail(run.get("id"))
 
           def main():
+              reset_running_actor_runs()
               root_status, root_body = request_text(f"{standby_url}/")
               print(f"Root probe: status={root_status}, body_prefix={root_body[:80]!r}")
               print("Submitting Standby smoke job")
