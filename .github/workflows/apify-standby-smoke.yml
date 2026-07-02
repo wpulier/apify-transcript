@@ -1,0 +1,113 @@
+name: Apify Standby Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      standby_url:
+        description: "Apify Standby base URL"
+        required: true
+        default: "https://esteemed-chimta--large-video-to-transcript.apify.actor"
+      media_url:
+        description: "Small direct media URL to transcribe"
+        required: true
+        default: "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
+      timeout_seconds:
+        description: "Maximum seconds to wait for completion"
+        required: true
+        default: "900"
+
+jobs:
+  standby-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit and verify Standby transcript job
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          STANDBY_URL: ${{ inputs.standby_url }}
+          MEDIA_URL: ${{ inputs.media_url }}
+          TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          token = os.environ["APIFY_TOKEN"]
+          standby_url = os.environ["STANDBY_URL"].rstrip("/")
+          media_url = os.environ["MEDIA_URL"]
+          timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
+
+          def request_json(url, payload=None, method=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              headers = {
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/json",
+              }
+              if data is not None:
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
+
+          print("Submitting Standby smoke job")
+          created = request_json(f"{standby_url}/api/jobs", {"mediaUrl": media_url}, method="POST")
+          job_id = created["jobId"]
+          job_url = created["jobUrl"]
+          print(f"Job ID: {job_id}")
+          print(f"Job URL: {job_url}")
+
+          deadline = time.monotonic() + timeout_seconds
+          last_status = None
+          job = None
+          while time.monotonic() < deadline:
+              payload = request_json(f"{standby_url}/api/jobs/{job_id}")
+              job = payload["job"]
+              status = job.get("status")
+              message = job.get("message") or ""
+              if status != last_status:
+                  print(f"Status: {status} - {message}")
+                  last_status = status
+              if status in {"completed", "failed"}:
+                  break
+              time.sleep(10)
+
+          if not job:
+              raise RuntimeError("Job status was never returned")
+          if job.get("status") != "completed":
+              raise RuntimeError(f"Standby smoke job did not complete: {job.get('status')} {job.get('error')}")
+
+          artifacts = job.get("artifactUrls") or {}
+          required = ["mp3", "txt", "json", "srt", "vtt", "quality.json", "zip"]
+          missing = [key for key in required if not artifacts.get(key)]
+          if missing:
+              raise RuntimeError(f"Missing artifact URLs: {', '.join(missing)}")
+
+          result = job.get("result") or {}
+          print(
+              "Completed: "
+              f"words={result.get('wordCount')} "
+              f"speakers={result.get('speakerCount')} "
+              f"charged={result.get('charged')} "
+              f"billableMinutes={result.get('billableMinutes')}"
+          )
+          if result.get("charged") is not True:
+              raise RuntimeError("Smoke job completed but was not charged")
+
+          for key in ("txt", "mp3", "zip"):
+              url = artifacts[key]
+              req = urllib.request.Request(url, method="GET")
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  if response.status >= 400:
+                      raise RuntimeError(f"Artifact {key} returned HTTP {response.status}")
+                  size = response.headers.get("content-length") or "unknown"
+                  print(f"Artifact {key}: downloadable, content-length={size}")
+
+          print("Standby smoke test passed")
+          PY
