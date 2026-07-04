@@ -27,7 +27,7 @@ The Actor also writes one dataset row per source with status, quality, duration,
 3. You can also paste a direct downloadable media URL in that same field.
 4. Click the green **Start** button. In the owner/developer Console, this button is labeled **Build & start** at the bottom left.
 5. When the run finishes, open **Output**.
-6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output table.
+6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output table. The **Transcript** link downloads the `.txt` file directly.
 
 This is the only public product path. There is no separate Standby tab or second upload screen to choose from.
 

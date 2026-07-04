@@ -5,7 +5,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import httpx
 from apify import Actor
@@ -21,6 +21,7 @@ from .utils import ceil_minutes, slugify
 
 ACTOR_ID = "kTgaX3cfI6dlJHa6J"
 APIFY_API_BASE_URL = "https://api.apify.com/v2"
+DOWNLOAD_ATTACHMENT_SUFFIXES = {"txt"}
 
 
 def artifact_key(source_id: str, source_name: str, suffix: str) -> str:
@@ -37,21 +38,26 @@ def log_actor_error(actor: object, message: str) -> None:
         log_method("%s", message)
 
 
-def artifact_url(key: str, store_id: str | None = None, signing_secret: str | None = None) -> str | None:
+def artifact_url(key: str, store_id: str | None = None, signing_secret: str | None = None, attachment: bool = False) -> str | None:
     store_id = store_id or os.environ.get("APIFY_DEFAULT_KEY_VALUE_STORE_ID")
     if not store_id:
         return None
     url = f"{APIFY_API_BASE_URL}/key-value-stores/{store_id}/records/{quote(key, safe='')}"
+    query: dict[str, str] = {}
     if signing_secret:
         signature = create_hmac_signature(signing_secret, key)
-        return f"{url}?signature={quote(signature, safe='')}"
+        query["signature"] = signature
+    if attachment:
+        query["attachment"] = "true"
+    if query:
+        return f"{url}?{urlencode(query)}"
     return url
 
 
 def artifact_urls(keys: dict[str, str], signing_secret: str | None = None) -> dict[str, str]:
     urls = {}
     for suffix, key in keys.items():
-        url = artifact_url(key, signing_secret=signing_secret)
+        url = artifact_url(key, signing_secret=signing_secret, attachment=suffix in DOWNLOAD_ATTACHMENT_SUFFIXES)
         if url:
             urls[suffix] = url
     return urls

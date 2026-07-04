@@ -376,6 +376,18 @@ class ArtifactTests(unittest.TestCase):
             "https://api.apify.com/v2/key-value-stores/store123/records/001_demo.txt?signature=VT6pvNYVcXQtMYUm72LS",
         )
 
+    def test_artifact_url_can_force_browser_download(self):
+        with patch.dict(
+            "os.environ",
+            {"APIFY_DEFAULT_KEY_VALUE_STORE_ID": "store123"},
+            clear=True,
+        ):
+            url = artifact_url("001_demo.txt", signing_secret="secret", attachment=True)
+        self.assertEqual(
+            url,
+            "https://api.apify.com/v2/key-value-stores/store123/records/001_demo.txt?signature=VT6pvNYVcXQtMYUm72LS&attachment=true",
+        )
+
     def test_renders_transcript_artifacts(self):
         canonical = sample_canonical()
         self.assertIn("[00:00:00 Speaker 0] Hello there.", render_txt(canonical))
