@@ -45,7 +45,7 @@ class FakeActor:
         self.dataset = []
         self.values = {}
         self.statuses = []
-        self.log = SimpleNamespace(info=lambda *args, **kwargs: None)
+        self.log = SimpleNamespace(info=lambda *args, **kwargs: None, error=lambda *args, **kwargs: None)
 
     async def get_input(self):
         return self.actor_input

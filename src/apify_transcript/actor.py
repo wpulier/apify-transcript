@@ -30,6 +30,13 @@ def artifact_key(source_id: str, source_name: str, suffix: str) -> str:
     return f"{source_id}_{stem}.{suffix}"
 
 
+def log_actor_error(actor: object, message: str) -> None:
+    logger = getattr(actor, "log", None)
+    log_method = getattr(logger, "error", None) or getattr(logger, "info", None)
+    if log_method:
+        log_method("%s", message)
+
+
 def artifact_url(key: str, store_id: str | None = None, signing_secret: str | None = None) -> str | None:
     store_id = store_id or os.environ.get("APIFY_DEFAULT_KEY_VALUE_STORE_ID")
     if not store_id:
@@ -244,6 +251,7 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     error=None,
                 )
             except Exception as exc:
+                log_actor_error(actor, f"Failed {source.name}: {exc}")
                 row = {
                     "status": "failed",
                     "sourceId": source.source_id,

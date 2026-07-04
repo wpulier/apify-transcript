@@ -68,6 +68,26 @@ jobs:
                   detail = exc.read().decode("utf-8", errors="replace")
                   raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
 
+          def print_dataset_rows(run):
+              dataset_id = run.get("defaultDatasetId")
+              if not dataset_id:
+                  print("No dataset id was available on the failed run")
+                  return []
+              try:
+                  rows = request_json(api_url(f"datasets/{dataset_id}/items", clean="true")) or []
+              except Exception as exc:
+                  print(f"Could not fetch dataset rows: {exc}")
+                  return []
+              print(f"Dataset rows on failure: {len(rows)}")
+              for row in rows:
+                  print(
+                      "  row: "
+                      f"status={row.get('status')} "
+                      f"source={row.get('sourceName')} "
+                      f"error={row.get('error')}"
+                  )
+              return rows
+
           parsed = urllib.parse.urlparse(media_url)
           file_name = os.path.basename(parsed.path) or "console-upload-smoke.mp3"
           print(f"Downloading sample media: {media_url}")
@@ -93,7 +113,7 @@ jobs:
 
           run_payload = {"media": [media_record_url]}
           run = request_json(
-              api_url(f"acts/{actor_id}/runs", build="latest", timeout="900"),
+              api_url(f"acts/{actor_id}/runs", build="latest", timeout="900", maxTotalChargeUsd="1"),
               run_payload,
               method="POST",
           )["data"]
@@ -113,6 +133,7 @@ jobs:
               time.sleep(10)
 
           if run.get("status") != "SUCCEEDED":
+              print_dataset_rows(run)
               log_url = api_url(f"logs/{run_id}")
               try:
                   _, _, log_body = request_bytes(log_url)

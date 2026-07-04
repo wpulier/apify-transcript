@@ -46,7 +46,7 @@ Local files still need to transfer to Apify before the run starts. For very larg
 Run the Actor with a direct media URL:
 
 ```bash
-curl -X POST "https://api.apify.com/v2/acts/kTgaX3cfI6dlJHa6J/runs?token=$APIFY_TOKEN" \
+curl -X POST "https://api.apify.com/v2/acts/kTgaX3cfI6dlJHa6J/runs?token=$APIFY_TOKEN&maxTotalChargeUsd=10" \
   -H "Content-Type: application/json" \
   -d '{"media":["https://example.com/recording.mp4"]}'
 ```
