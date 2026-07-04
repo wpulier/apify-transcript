@@ -1,6 +1,6 @@
 # Large Video to Transcript
 
-Upload a large video or audio file, click Run, and get an MP3 plus timestamped transcript exports when the job is done.
+Upload a large video or audio file, click the green Start / Build & start button, and get an MP3 plus timestamped transcript exports when the job is done.
 
 Open the Actor input form, upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media transfer, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
@@ -22,10 +22,10 @@ The Actor also writes one dataset row per source with status, quality, duration,
 
 ## How To Run
 
-1. Open the Actor's **Input** tab.
+1. Open the Actor's **Input** form. In the owner/developer Console, this is **Source -> Input -> Form**.
 2. In **Upload video or audio**, click **Upload new files** and choose your video/audio file.
 3. You can also paste a direct downloadable media URL in that same field.
-4. Click **Run**.
+4. Click the green **Start** button. In the owner/developer Console, this button is labeled **Build & start** at the bottom left.
 5. When the run finishes, open **Output**.
 6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output table.
 
