@@ -189,6 +189,9 @@ class InputTests(unittest.TestCase):
 
     def test_deploy_workflow_sets_full_permissions_for_uploads(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
+        self.assertIn("Configure managed provider keys", workflow)
+        self.assertIn("OPENAI_API_KEY", workflow)
+        self.assertIn("is_secret=True", workflow)
         self.assertIn("Configure primary Console upload UX", workflow)
         self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)

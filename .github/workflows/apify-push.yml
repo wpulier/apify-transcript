@@ -48,6 +48,41 @@ jobs:
           APIFY_CLI_DISABLE_TELEMETRY: "1"
         run: apify push kTgaX3cfI6dlJHa6J --wait-for-finish=999999
 
+      - name: Configure managed provider keys
+        env:
+          ACTOR_ID: kTgaX3cfI6dlJHa6J
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          from apify_client import ApifyClient
+
+          actor_id = os.environ["ACTOR_ID"]
+          token = os.environ["APIFY_TOKEN"]
+          openai_api_key = os.environ.get("OPENAI_API_KEY") or ""
+          if not openai_api_key.strip():
+              print("GitHub secret OPENAI_API_KEY is required for managed transcription", file=sys.stderr)
+              sys.exit(1)
+
+          actor_version = json.loads(open(".actor/actor.json", encoding="utf-8").read())["version"]
+          version_client = ApifyClient(token).actor(actor_id).version(actor_version)
+          env_client = version_client.env_var("OPENAI_API_KEY")
+          if env_client.get():
+              env_client.update(name="OPENAI_API_KEY", value=openai_api_key, is_secret=True)
+          else:
+              version_client.env_vars().create(name="OPENAI_API_KEY", value=openai_api_key, is_secret=True)
+
+          configured = env_client.get()
+          if not configured or configured.get("isSecret") is not True:
+              print("OPENAI_API_KEY was not configured as a secret Actor env var", file=sys.stderr)
+              sys.exit(1)
+          print(f"Configured secret OPENAI_API_KEY for Actor version {actor_version}")
+          PY
+
       - name: Configure primary Console upload UX
         env:
           ACTOR_ID: kTgaX3cfI6dlJHa6J
