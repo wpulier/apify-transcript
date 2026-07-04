@@ -48,7 +48,7 @@ jobs:
           APIFY_CLI_DISABLE_TELEMETRY: "1"
         run: apify push kTgaX3cfI6dlJHa6J --wait-for-finish=999999
 
-      - name: Require full permissions for Console file uploads
+      - name: Configure primary Console upload UX
         env:
           ACTOR_ID: kTgaX3cfI6dlJHa6J
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
@@ -77,16 +77,13 @@ jobs:
           if (
               actor.get("actorPermissionLevel") != "FULL_PERMISSIONS"
               or (actor.get("exampleRunInput") or {}).get("body") != sample_input
-              or not standby.get("isEnabled")
+              or standby.get("isEnabled")
           ):
               actor_client.update(
                   actor_permission_level="FULL_PERMISSIONS",
                   example_run_input_body=sample_input,
                   example_run_input_content_type="application/json; charset=utf-8",
-                  actor_standby_is_enabled=True,
-                  actor_standby_build="latest",
-                  actor_standby_memory_mbytes=2048,
-                  actor_standby_idle_timeout_secs=300,
+                  actor_standby_is_enabled=False,
               )
               actor = actor_client.get()
 
@@ -102,8 +99,8 @@ jobs:
               sys.exit(1)
           standby = actor.get("actorStandby") or {}
           print(f"Standby enabled: {standby.get('isEnabled')}")
-          if not standby.get("isEnabled"):
-              print("Actor Standby was not enabled", file=sys.stderr)
+          if standby.get("isEnabled"):
+              print("Actor Standby is still enabled; public UX must use one Console upload flow", file=sys.stderr)
               sys.exit(1)
           PY
 
@@ -126,10 +123,11 @@ jobs:
                   return json.load(response)["data"]
 
           actor = get_json(f"https://api.apify.com/v2/acts/{actor_id}?token={token}")
-          if not actor.get("standbyUrl"):
-              print("Standby URL was not found on Actor", file=sys.stderr)
+          standby = actor.get("actorStandby") or {}
+          print(f"Standby enabled: {standby.get('isEnabled')}")
+          if standby.get("isEnabled"):
+              print("Standby should be disabled for the one-path public upload UX", file=sys.stderr)
               sys.exit(1)
-          print(f"Apify Standby URL: {actor.get('standbyUrl')}")
           latest = (actor.get("taggedBuilds") or {}).get("latest") or {}
           build_id = latest.get("buildId")
           if not build_id:

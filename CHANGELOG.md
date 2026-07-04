@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2
+
+- Collapses the public UX to one path: upload media in the Actor Input tab, click Run, and download results from Output.
+- Disables the public Standby tab to avoid two competing upload flows.
+- Updates Store copy and input field text to make the upload flow explicit.
+
 ## 0.1
 
 - Initial Large Video to Transcript Actor.
@@ -9,8 +15,7 @@
 - Adds Pay Per Event guard for the `transcription-minute` billing event.
 - Adds one required `media` input, signed browser artifact links, and normalized MP3 output.
 - Adds launch-ready output schema, upload-first Console copy, and $0.10/min paid beta pricing.
-- Adds a tiny prefilled sample MP3 so Apify Console task creation and Store onboarding have valid media while keeping `media` required.
-- Simplifies the public input form to one submit field, hides advanced defaults, and adds URL download progress logs.
+- Simplifies the public input form to one required upload field, hides advanced defaults, and adds URL download progress logs.
 - Requires full Actor permissions during deployment so Console-uploaded media files can be read from Apify storage, with a clearer uploaded-file permission error if access is denied.
 - Removes provider-key/provider-mode controls from the public product surface so paid users can submit media and receive managed transcript outputs without bringing API keys.
-- Adds Apify Standby job UX with a simple submit page, direct URL jobs, chunked browser uploads, job status polling, and result links.
+- Keeps the Standby job server code available for future advanced/API use, but it is not the public buyer UX.

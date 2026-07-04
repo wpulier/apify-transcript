@@ -1,22 +1,19 @@
 {
   "title": "Large Video to Transcript",
-  "description": "Submit a video or audio file. We create the MP3, timestamped transcript exports, quality report, and ZIP bundle.",
+  "description": "Upload a video or audio file, click Run, and download the MP3 plus transcript bundle when it finishes.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "media": {
-      "title": "Submit video or audio",
-      "description": "Upload a file or paste a direct media URL. For files over 500 MB, a direct URL is faster than browser upload.",
+      "title": "Upload video or audio",
+      "description": "Click Upload new files to choose an MP4, MOV, WebM, MP3, M4A, or WAV file. You can also paste a direct downloadable media URL in the same field. Then click Run.",
       "type": "array",
       "editor": "fileupload",
       "minItems": 1,
       "maxItems": 10,
       "items": {
         "type": "string"
-      },
-      "prefill": [
-        "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
-      ]
+      }
     }
   },
   "required": ["media"]

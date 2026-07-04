@@ -156,14 +156,12 @@ class InputTests(unittest.TestCase):
     def test_input_schema_requires_a_media_source(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
         self.assertEqual(schema["properties"]["media"]["editor"], "fileupload")
-        self.assertEqual(schema["properties"]["media"]["title"], "Submit video or audio")
-        self.assertIn("direct media URL", schema["properties"]["media"]["description"])
+        self.assertEqual(schema["properties"]["media"]["title"], "Upload video or audio")
+        self.assertIn("Upload new files", schema["properties"]["media"]["description"])
+        self.assertIn("direct downloadable media URL", schema["properties"]["media"]["description"])
         self.assertEqual(schema["properties"]["media"]["minItems"], 1)
         self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
-        self.assertEqual(
-            schema["properties"]["media"]["prefill"],
-            ["https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"],
-        )
+        self.assertNotIn("prefill", schema["properties"]["media"])
         self.assertTrue((Path(__file__).resolve().parents[1] / "samples" / "large-video-to-transcript-sample.mp3").exists())
         self.assertEqual(schema["required"], ["media"])
 
@@ -181,25 +179,23 @@ class InputTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         actor = json.loads((root / ".actor" / "actor.json").read_text())
         output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
-        openapi = json.loads((root / ".actor" / "openapi.json").read_text())
-        self.assertTrue(actor["usesStandbyMode"])
-        self.assertEqual(actor["webServerSchema"], "./openapi.json")
+        self.assertNotIn("usesStandbyMode", actor)
+        self.assertNotIn("webServerSchema", actor)
         self.assertEqual(actor["output"], "./output_schema.json")
         self.assertEqual(actor["storages"]["dataset"], "./dataset_schema.json")
         self.assertIn("results", output_schema["properties"])
         self.assertIn("summary", output_schema["properties"])
         self.assertIn("artifacts", output_schema["properties"])
-        self.assertIn("/jobs", openapi["paths"])
 
     def test_deploy_workflow_sets_full_permissions_for_uploads(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
-        self.assertIn("Require full permissions for Console file uploads", workflow)
+        self.assertIn("Configure primary Console upload UX", workflow)
         self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
         self.assertIn('"media": [', workflow)
         self.assertIn("example_run_input_body=sample_input", workflow)
-        self.assertIn("actor_standby_is_enabled=True", workflow)
-        self.assertIn("standbyUrl", workflow)
+        self.assertIn("actor_standby_is_enabled=False", workflow)
+        self.assertIn("public UX must use one Console upload flow", workflow)
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
