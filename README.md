@@ -1,8 +1,8 @@
 # Large Video to Transcript
 
-Upload a large video or audio file, click the green Start / Build & start button, and get an MP3 plus timestamped transcript exports when the job is done.
+Upload a large video or audio file, click **Go**, and get an MP3 plus timestamped transcript exports when the job is done.
 
-Open the Actor input form, upload MP4, MOV, WebM, MP3, M4A, or WAV files, or paste a direct downloadable media URL. The Actor handles the rest: media transfer, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
+Open the Actor's Standby uploader, choose an MP4, MOV, WebM, MP3, M4A, or WAV file, or paste a direct downloadable media URL. The Actor handles the rest: upload, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -22,16 +22,16 @@ The Actor also writes one dataset row per source with status, quality, duration,
 
 ## How To Run
 
-1. Open the Actor's **Input** form. In the owner/developer Console, this is **Source -> Input -> Form**.
-2. In **Upload video or audio**, click **Upload new files** and choose your video/audio file.
-3. You can also paste a direct downloadable media URL in that same field.
-4. Click the green **Start** button. In the owner/developer Console, this button is labeled **Build & start** at the bottom left.
-5. When the run finishes, open **Output**.
-6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle from the Output table. The **Transcript** link downloads the `.txt` file directly.
+1. Open the Actor's **Standby** tab.
+2. Open the upload page.
+3. Choose one video/audio file or paste one direct downloadable media URL.
+4. Click **Go**.
+5. Keep the job page open, or bookmark it and come back later.
+6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle when the job is complete. The **Transcript** link downloads the `.txt` file directly.
 
-This is the only public product path. There is no separate Standby tab or second upload screen to choose from.
+The normal Apify **Input** form still works as a fallback/API-compatible batch path, but the Standby uploader is the primary product experience. It avoids Apify's technical upload modal and keeps the flow to: upload, click Go, download results.
 
-Local files still need to transfer to Apify before the run starts. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry. The finished MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links, so you do not need to manually add an API token to open the results after a run completes. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
+Local files still need to transfer before transcription starts, but the Standby uploader shows progress and starts the worker run automatically. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry. The finished MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links, so you do not need to manually add an API token to open the results after a run completes. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 
 ## Why Use This Actor
 
@@ -43,7 +43,7 @@ Local files still need to transfer to Apify before the run starts. For very larg
 
 ## API Example
 
-Run the Actor with a direct media URL:
+Run the Actor in normal mode with a direct media URL:
 
 ```bash
 curl -X POST "https://api.apify.com/v2/acts/kTgaX3cfI6dlJHa6J/runs?token=$APIFY_TOKEN&maxTotalChargeUsd=10" \
@@ -57,6 +57,15 @@ Request body:
 {
   "media": ["https://example.com/recording.mp4"]
 }
+```
+
+The Standby API also supports job-based submission:
+
+```bash
+curl -X POST "$ACTOR_STANDBY_URL/jobs" \
+  -H "Authorization: Bearer $APIFY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mediaUrl":"https://example.com/recording.mp4"}'
 ```
 
 ## Managed Transcription

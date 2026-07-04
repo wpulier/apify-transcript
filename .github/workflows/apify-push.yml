@@ -83,7 +83,7 @@ jobs:
           print(f"Configured secret OPENAI_API_KEY for Actor version {actor_version}")
           PY
 
-      - name: Configure primary Console upload UX
+      - name: Configure primary Standby upload UX
         env:
           ACTOR_ID: kTgaX3cfI6dlJHa6J
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
@@ -105,13 +105,21 @@ jobs:
           if (
               actor.get("actorPermissionLevel") != "FULL_PERMISSIONS"
               or (actor.get("exampleRunInput") or {}).get("body") != example_input
-              or standby.get("isEnabled")
+              or not standby.get("isEnabled")
+              or standby.get("build") != "latest"
+              or standby.get("memoryMbytes") != 1024
+              or standby.get("idleTimeoutSecs") != 300
           ):
               actor_client.update(
                   actor_permission_level="FULL_PERMISSIONS",
                   example_run_input_body=example_input,
                   example_run_input_content_type="application/json; charset=utf-8",
-                  actor_standby_is_enabled=False,
+                  actor_standby_is_enabled=True,
+                  actor_standby_build="latest",
+                  actor_standby_memory_mbytes=1024,
+                  actor_standby_idle_timeout_secs=300,
+                  actor_standby_desired_requests_per_actor_run=1,
+                  actor_standby_max_requests_per_actor_run=4,
               )
               actor = actor_client.get()
 
@@ -127,8 +135,14 @@ jobs:
               sys.exit(1)
           standby = actor.get("actorStandby") or {}
           print(f"Standby enabled: {standby.get('isEnabled')}")
-          if standby.get("isEnabled"):
-              print("Actor Standby is still enabled; public UX must use one Console upload flow", file=sys.stderr)
+          print(f"Standby build: {standby.get('build')}")
+          print(f"Standby memory: {standby.get('memoryMbytes')}")
+          print(f"Standby idle timeout: {standby.get('idleTimeoutSecs')}")
+          if not standby.get("isEnabled"):
+              print("Actor Standby is not enabled; public UX must use the custom upload page", file=sys.stderr)
+              sys.exit(1)
+          if standby.get("build") != "latest":
+              print("Actor Standby build must be latest", file=sys.stderr)
               sys.exit(1)
           PY
 
@@ -153,8 +167,11 @@ jobs:
           actor = get_json(f"https://api.apify.com/v2/acts/{actor_id}?token={token}")
           standby = actor.get("actorStandby") or {}
           print(f"Standby enabled: {standby.get('isEnabled')}")
-          if standby.get("isEnabled"):
-              print("Standby should be disabled for the one-path public upload UX", file=sys.stderr)
+          if not standby.get("isEnabled"):
+              print("Standby should be enabled for the one-path public upload UX", file=sys.stderr)
+              sys.exit(1)
+          if standby.get("build") != "latest":
+              print(f"Standby build should be latest, got {standby.get('build')}", file=sys.stderr)
               sys.exit(1)
           latest = (actor.get("taggedBuilds") or {}).get("latest") or {}
           build_id = latest.get("buildId")

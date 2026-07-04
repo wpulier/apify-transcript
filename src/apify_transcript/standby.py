@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from decimal import Decimal, InvalidOperation
 from html import escape
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -45,6 +46,16 @@ def standby_port(actor: object) -> int:
         if value:
             return int(value)
     return 4321
+
+
+def worker_charge_limit() -> Decimal | None:
+    value = os.environ.get("ACTOR_MAX_TOTAL_CHARGE_USD")
+    if not value:
+        return None
+    try:
+        return Decimal(value)
+    except (InvalidOperation, ValueError):
+        return None
 
 
 def serve_standby(actor: object) -> None:
@@ -166,12 +177,14 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
         try:
             payload = self.read_json()
             media_url = str(payload.get("mediaUrl") or payload.get("url") or "").strip()
-            if media_url:
-                self.create_direct_url_job(media_url)
-                return
             file_name = str(payload.get("fileName") or "").strip()
             file_size = int(payload.get("fileSize") or 0)
             content_type = str(payload.get("contentType") or "application/octet-stream")
+            if media_url and file_name:
+                raise ValueError("Choose either a media URL or a file, not both")
+            if media_url:
+                self.create_direct_url_job(media_url)
+                return
             if not file_name:
                 raise ValueError("Provide a media URL or choose a file")
             job = create_upload_job(file_name, file_size, content_type, DEFAULT_CHUNK_SIZE)
@@ -250,6 +263,7 @@ class TranscriptStandbyHandler(BaseHTTPRequestHandler):
                 run_input=worker_input_for_job(job, self.server.job_store_name),
                 content_type="application/json; charset=utf-8",
                 build="latest",
+                max_total_charge_usd=worker_charge_limit(),
                 timeout_secs=WORKER_TIMEOUT_SECONDS,
                 wait_for_finish=0,
             )
@@ -309,13 +323,13 @@ def render_home_page() -> str:
   <main class="shell">
     <section class="panel">
       <p class="eyebrow">Large Video to Transcript</p>
-      <h1>Submit media. Get transcript exports.</h1>
-      <p class="sub">Upload a video/audio file or paste a direct media URL. We create the MP3, transcript, subtitles, JSON, quality report, and ZIP bundle.</p>
+      <h1>Upload media. Get transcript exports.</h1>
+      <p class="sub">Choose one video/audio file or paste one direct media URL. We handle upload, MP3 creation, transcription, subtitles, JSON, quality reporting, and ZIP packaging.</p>
       <form id="job-form" class="form">
         <label>Direct media URL<input id="media-url" type="url" placeholder="https://example.com/recording.mp4"></label>
         <div class="divider">or</div>
         <label>Upload video/audio<input id="media-file" type="file" accept="audio/*,video/*,.mp3,.mp4,.mov,.m4a,.wav,.webm,.mkv"></label>
-        <button id="submit-button" type="submit">Submit</button>
+        <button id="submit-button" type="submit">Go</button>
       </form>
       <div id="status" class="status">Ready.</div>
       <div class="progress"><div id="bar"></div></div>
@@ -406,6 +420,7 @@ form.addEventListener('submit', async (event) => {
   try {
     const mediaUrl = urlInput.value.trim();
     const file = fileInput.files[0];
+    if (mediaUrl && file) throw new Error('Use either a media URL or a file, not both.');
     if (mediaUrl) {
       setStatus('Creating transcript job...', 5);
       const data = await jsonFetch('/jobs', {
@@ -432,7 +447,7 @@ form.addEventListener('submit', async (event) => {
       const start = index * chunkSize;
       const end = Math.min(file.size, start + chunkSize);
       const chunk = file.slice(start, end);
-      setStatus(`Uploading chunk ${index + 1} / ${totalChunks}...`, Math.round((index / totalChunks) * 85));
+      setStatus(`Uploading ${index + 1} / ${totalChunks} chunks...`, Math.round((index / totalChunks) * 85));
       await fetch(`/jobs/${job.jobId}/chunks/${index}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/octet-stream' },
@@ -505,7 +520,7 @@ function render(job) {
   ].filter(([, value]) => value);
   meta.innerHTML = rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${v}</dd>`).join('');
   const artifacts = job.artifactUrls || {};
-  const names = [['mp3', 'MP3'], ['txt', 'Transcript'], ['json', 'JSON'], ['srt', 'SRT'], ['vtt', 'VTT'], ['quality.json', 'Quality'], ['zip', 'ZIP']];
+  const names = [['mp3', 'Download MP3'], ['txt', 'Download transcript'], ['json', 'Download JSON'], ['srt', 'Download SRT'], ['vtt', 'Download VTT'], ['quality.json', 'Download quality report'], ['zip', 'Download ZIP']];
   links.innerHTML = names.filter(([key]) => artifacts[key]).map(([key, text]) => safeLink(artifacts[key], text)).join('');
 }
 async function poll() {

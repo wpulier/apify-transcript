@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3
+
+- Makes the Standby upload page the primary product UX: upload media, click Go, and return to a job page for results.
+- Re-enables Apify Standby with an OpenAPI web server schema and low-idle web-server settings.
+- Preserves normal Actor input as a fallback/API-compatible batch path.
+- Passes the Standby run charge limit into the background transcription worker.
+- Keeps transcript TXT links as browser-download attachments.
+
 ## 0.2
 
 - Collapses the public UX to one path: upload media in the Actor Input tab, click Run, and download results from Output.

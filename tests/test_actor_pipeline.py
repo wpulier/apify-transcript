@@ -4,6 +4,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,7 +27,7 @@ from apify_transcript.jobs import (
     worker_input_for_job,
 )
 from apify_transcript.media import MediaSource, download_url_source, parse_media_sources
-from apify_transcript.standby import TranscriptStandbyHandler, TranscriptStandbyServer, is_standby_origin, render_home_page
+from apify_transcript.standby import TranscriptStandbyHandler, TranscriptStandbyServer, is_standby_origin, render_home_page, worker_charge_limit
 from apify_transcript.transcript import (
     TranscriptBundle,
     artifact_payloads,
@@ -179,8 +180,8 @@ class InputTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         actor = json.loads((root / ".actor" / "actor.json").read_text())
         output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
-        self.assertNotIn("usesStandbyMode", actor)
-        self.assertNotIn("webServerSchema", actor)
+        self.assertTrue(actor["usesStandbyMode"])
+        self.assertEqual(actor["webServerSchema"], "./openapi.json")
         self.assertEqual(actor["output"], "./output_schema.json")
         self.assertEqual(actor["storages"]["dataset"], "./dataset_schema.json")
         self.assertIn("results", output_schema["properties"])
@@ -192,13 +193,14 @@ class InputTests(unittest.TestCase):
         self.assertIn("Configure managed provider keys", workflow)
         self.assertIn("OPENAI_API_KEY", workflow)
         self.assertIn("is_secret=True", workflow)
-        self.assertIn("Configure primary Console upload UX", workflow)
+        self.assertIn("Configure primary Standby upload UX", workflow)
         self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
         self.assertIn('example_input = "{}"', workflow)
         self.assertIn("example_run_input_body=example_input", workflow)
-        self.assertIn("actor_standby_is_enabled=False", workflow)
-        self.assertIn("public UX must use one Console upload flow", workflow)
+        self.assertIn("actor_standby_is_enabled=True", workflow)
+        self.assertIn("actor_standby_build=\"latest\"", workflow)
+        self.assertIn("public UX must use the custom upload page", workflow)
 
     def test_accepts_uploads_and_urls(self):
         sources = parse_media_sources(
@@ -302,10 +304,17 @@ class StandbyTests(unittest.TestCase):
 
     def test_home_page_renders_submit_controls(self):
         html = render_home_page()
-        self.assertIn("Submit media", html)
+        self.assertIn("Upload media", html)
         self.assertIn("media-file", html)
         self.assertIn("media-url", html)
         self.assertIn("/jobs", html)
+        self.assertIn(">Go<", html)
+
+    def test_worker_charge_limit_reads_standby_limit(self):
+        with patch.dict("os.environ", {"ACTOR_MAX_TOTAL_CHARGE_USD": "12.50"}, clear=True):
+            self.assertEqual(str(worker_charge_limit()), "12.50")
+        with patch.dict("os.environ", {"ACTOR_MAX_TOTAL_CHARGE_USD": "bad"}, clear=True):
+            self.assertIsNone(worker_charge_limit())
 
     def test_upload_job_chunks_materialize_for_worker(self):
         fake_client = FakeKvsClient()
@@ -361,6 +370,34 @@ class StandbyTests(unittest.TestCase):
         self.assertEqual(payload["job"]["status"], "queued")
         self.assertEqual(payload["job"]["runId"], "run123")
         self.assertIn("/jobs/", payload["jobUrl"])
+
+    def test_standby_rejects_mixed_url_and_file_source(self):
+        fake_store = JobStore(FakeKvsClient())
+        with patch("apify_transcript.standby.JobStore.from_token", return_value=fake_store):
+            server = TranscriptStandbyServer(("127.0.0.1", 0), TranscriptStandbyHandler, token="token", actor_id="actor123", job_store_name="fake")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_address[1]}/jobs",
+                data=json.dumps(
+                    {
+                        "mediaUrl": "https://example.com/demo.mp4",
+                        "fileName": "demo.mp4",
+                        "fileSize": 10,
+                    }
+                ).encode("utf-8"),
+                headers={"content-type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(request, timeout=10)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        self.assertEqual(error.exception.code, 400)
+        self.assertIn("either a media URL or a file", error.exception.read().decode("utf-8"))
 
 
 class ArtifactTests(unittest.TestCase):

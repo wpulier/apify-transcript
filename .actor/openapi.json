@@ -2,8 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Large Video to Transcript Standby API",
-    "version": "1.0.0",
-    "description": "Submit a video/audio file or direct media URL and receive a job page with transcript artifacts when complete. Standby requests require Apify API authentication."
+    "version": "1.1.0",
+    "description": "Open the submit page, upload one video/audio file or direct media URL, and receive a job page with MP3 plus transcript artifacts when complete. Standby requests require Apify API authentication."
   },
   "security": [
     {

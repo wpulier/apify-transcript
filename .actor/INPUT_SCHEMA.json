@@ -1,12 +1,12 @@
 {
   "title": "Large Video to Transcript",
-  "description": "Upload a video or audio file, click the green Start / Build & start button, and download the MP3 plus transcript bundle when it finishes.",
+  "description": "Fallback normal-run input. For the simplest upload experience, use the Actor Standby upload page.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "media": {
       "title": "Upload video or audio",
-      "description": "Click Upload new files to choose an MP4, MOV, WebM, MP3, M4A, or WAV file. You can also paste a direct downloadable media URL in the same field. Then click the green Start / Build & start button at the bottom left.",
+      "description": "Fallback normal-run path: click Upload new files to choose an MP4, MOV, WebM, MP3, M4A, or WAV file, or paste a direct downloadable media URL. The primary product flow is the Standby upload page.",
       "type": "array",
       "editor": "fileupload",
       "minItems": 1,
