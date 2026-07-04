@@ -2,7 +2,9 @@
 
 Upload a large video or audio file, click **Go**, and get an MP3 plus timestamped transcript exports when the job is done.
 
-Open the Actor's Standby uploader, choose an MP4, MOV, WebM, MP3, M4A, or WAV file, or paste a direct downloadable media URL. The Actor handles the rest: upload, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
+Use the Actor's **Standby** tab for the customer flow. Do not start from **Runs** or the raw **Input** form unless you intentionally want the fallback Apify batch path.
+
+Open the Standby uploader, choose an MP4, MOV, WebM, MP3, M4A, or WAV file, or paste a direct downloadable media URL. The Actor handles the rest: upload, media prep, MP3 creation, transcription, subtitles, quality reporting, ZIP packaging, and clean signed download links.
 
 This is built for long recordings that are painful to process manually: client calls, Zoom recordings, sales calls, coaching sessions, podcasts, webinars, internal meetings, course videos, and research interviews.
 
@@ -22,7 +24,7 @@ The Actor also writes one dataset row per source with status, quality, duration,
 
 ## How To Run
 
-1. Open the Actor's **Standby** tab.
+1. Open the Actor's **Standby** tab. If you are on **Runs** or **Input**, you are in the fallback Apify form, not the simple upload flow.
 2. Open the upload page.
 3. Choose one video/audio file or paste one direct downloadable media URL.
 4. Click **Go**.

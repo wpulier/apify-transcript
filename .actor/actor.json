@@ -2,7 +2,7 @@
   "actorSpecification": 1,
   "name": "large-video-to-transcript",
   "title": "Large Video to Transcript",
-  "description": "Convert large video and audio files into MP3 audio plus speaker-labeled transcript bundles with TXT, JSON, SRT, VTT, ZIP, and quality reports.",
+  "description": "Use the Standby tab to upload video or audio, click Go, and get MP3 plus speaker-labeled TXT, JSON, SRT, VTT, ZIP, and quality reports.",
   "version": "0.3",
   "buildTag": "latest",
   "usesStandbyMode": true,

@@ -157,9 +157,9 @@ class InputTests(unittest.TestCase):
     def test_input_schema_requires_a_media_source(self):
         schema = json.loads((Path(__file__).resolve().parents[1] / ".actor" / "INPUT_SCHEMA.json").read_text())
         self.assertEqual(schema["properties"]["media"]["editor"], "fileupload")
-        self.assertEqual(schema["properties"]["media"]["title"], "Upload video or audio")
-        self.assertIn("Upload new files", schema["properties"]["media"]["description"])
-        self.assertIn("direct downloadable media URL", schema["properties"]["media"]["description"])
+        self.assertEqual(schema["properties"]["media"]["title"], "Fallback upload input")
+        self.assertIn("fallback Apify run form", schema["properties"]["media"]["description"])
+        self.assertIn("Actor Standby tab", schema["properties"]["media"]["description"])
         self.assertEqual(schema["properties"]["media"]["minItems"], 1)
         self.assertEqual(schema["properties"]["media"]["maxItems"], 10)
         self.assertNotIn("prefill", schema["properties"]["media"])
@@ -180,6 +180,7 @@ class InputTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         actor = json.loads((root / ".actor" / "actor.json").read_text())
         output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
+        self.assertIn("Standby tab", actor["description"])
         self.assertTrue(actor["usesStandbyMode"])
         self.assertEqual(actor["webServerSchema"], "./openapi.json")
         self.assertEqual(actor["output"], "./output_schema.json")
