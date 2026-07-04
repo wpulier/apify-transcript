@@ -195,8 +195,8 @@ class InputTests(unittest.TestCase):
         self.assertIn("Configure primary Console upload UX", workflow)
         self.assertIn('actor_permission_level="FULL_PERMISSIONS"', workflow)
         self.assertIn('permission_level != "FULL_PERMISSIONS"', workflow)
-        self.assertIn('"media": [', workflow)
-        self.assertIn("example_run_input_body=sample_input", workflow)
+        self.assertIn('example_input = "{}"', workflow)
+        self.assertIn("example_run_input_body=example_input", workflow)
         self.assertIn("actor_standby_is_enabled=False", workflow)
         self.assertIn("public UX must use one Console upload flow", workflow)
 

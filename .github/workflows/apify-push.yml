@@ -100,23 +100,16 @@ jobs:
           client = ApifyClient(token)
           actor_client = client.actor(actor_id)
           actor = actor_client.get()
-          sample_input = json.dumps(
-              {
-                  "media": [
-                      "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
-                  ]
-              },
-              indent=2,
-          )
+          example_input = "{}"
           standby = actor.get("actorStandby") or {}
           if (
               actor.get("actorPermissionLevel") != "FULL_PERMISSIONS"
-              or (actor.get("exampleRunInput") or {}).get("body") != sample_input
+              or (actor.get("exampleRunInput") or {}).get("body") != example_input
               or standby.get("isEnabled")
           ):
               actor_client.update(
                   actor_permission_level="FULL_PERMISSIONS",
-                  example_run_input_body=sample_input,
+                  example_run_input_body=example_input,
                   example_run_input_content_type="application/json; charset=utf-8",
                   actor_standby_is_enabled=False,
               )
@@ -129,8 +122,8 @@ jobs:
               sys.exit(1)
           example_body = (actor.get("exampleRunInput") or {}).get("body")
           print(f"Example input: {example_body}")
-          if example_body != sample_input:
-              print("Actor example input was not updated to the primary media field", file=sys.stderr)
+          if example_body != example_input:
+              print("Actor example input was not cleared", file=sys.stderr)
               sys.exit(1)
           standby = actor.get("actorStandby") or {}
           print(f"Standby enabled: {standby.get('isEnabled')}")
