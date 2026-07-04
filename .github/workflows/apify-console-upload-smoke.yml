@@ -1,0 +1,152 @@
+name: Apify Console Upload Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      media_url:
+        description: "Small media file to upload to Apify storage before running the Actor"
+        required: true
+        default: "https://raw.githubusercontent.com/wpulier/apify-transcript/main/samples/large-video-to-transcript-sample.mp3"
+      timeout_seconds:
+        description: "Maximum seconds to wait for completion"
+        required: true
+        default: "900"
+
+jobs:
+  console-upload-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload media to Apify storage and verify Actor run
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          MEDIA_URL: ${{ inputs.media_url }}
+          TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+          ACTOR_ID: kTgaX3cfI6dlJHa6J
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          import os
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ["APIFY_TOKEN"]
+          actor_id = os.environ["ACTOR_ID"]
+          media_url = os.environ["MEDIA_URL"]
+          timeout_seconds = int(os.environ["TIMEOUT_SECONDS"])
+
+          def api_url(path, **query):
+              query["token"] = token
+              return f"https://api.apify.com/v2/{path.lstrip('/')}?{urllib.parse.urlencode(query)}"
+
+          def request_json(url, payload=None, method=None, headers=None):
+              body = None if payload is None else json.dumps(payload).encode("utf-8")
+              req_headers = {"Accept": "application/json"}
+              if body is not None:
+                  req_headers["Content-Type"] = "application/json"
+              if headers:
+                  req_headers.update(headers)
+              req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
+
+          def request_bytes(url, payload=None, method=None, content_type=None):
+              headers = {}
+              if content_type:
+                  headers["Content-Type"] = content_type
+              req = urllib.request.Request(url, data=payload, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as response:
+                      return response.status, response.headers, response.read()
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"{exc.code} {exc.reason}: {detail}") from exc
+
+          parsed = urllib.parse.urlparse(media_url)
+          file_name = os.path.basename(parsed.path) or "console-upload-smoke.mp3"
+          print(f"Downloading sample media: {media_url}")
+          _, source_headers, media_bytes = request_bytes(media_url)
+          content_type = source_headers.get("content-type", "audio/mpeg").split(";")[0] or "audio/mpeg"
+          print(f"Sample media: {file_name}, bytes={len(media_bytes)}, content_type={content_type}")
+
+          store = request_json(
+              api_url("key-value-stores"),
+              {"name": f"large-video-to-transcript-smoke-{int(time.time())}"},
+              method="POST",
+          )["data"]
+          store_id = store["id"]
+          record_key = file_name.replace("/", "-")
+          print(f"Created temporary key-value store: {store_id}")
+
+          upload_url = api_url(f"key-value-stores/{store_id}/records/{urllib.parse.quote(record_key, safe='')}")
+          status, _, _ = request_bytes(upload_url, payload=media_bytes, method="PUT", content_type=content_type)
+          if status not in {200, 201}:
+              raise RuntimeError(f"Unexpected upload status: {status}")
+          media_record_url = f"https://api.apify.com/v2/key-value-stores/{store_id}/records/{urllib.parse.quote(record_key, safe='')}"
+          print(f"Uploaded media record: {media_record_url}")
+
+          run_payload = {"media": [media_record_url]}
+          run = request_json(
+              api_url(f"acts/{actor_id}/runs", build="latest", timeout="900"),
+              run_payload,
+              method="POST",
+          )["data"]
+          run_id = run["id"]
+          print(f"Started Actor run: {run_id}")
+
+          deadline = time.monotonic() + timeout_seconds
+          last_status = None
+          while time.monotonic() < deadline:
+              run = request_json(api_url(f"actor-runs/{run_id}"))["data"]
+              status = run.get("status")
+              if status != last_status:
+                  print(f"Run status: {status} - {run.get('statusMessage')}")
+                  last_status = status
+              if status in {"SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"}:
+                  break
+              time.sleep(10)
+
+          if run.get("status") != "SUCCEEDED":
+              log_url = api_url(f"logs/{run_id}")
+              try:
+                  _, _, log_body = request_bytes(log_url)
+                  print("--- Actor log tail ---")
+                  print("\n".join(log_body.decode("utf-8", errors="replace").splitlines()[-120:]))
+              finally:
+                  raise RuntimeError(f"Actor run did not succeed: {run.get('status')}")
+
+          dataset_id = run["defaultDatasetId"]
+          rows = request_json(api_url(f"datasets/{dataset_id}/items", clean="true")) or []
+          if not rows:
+              raise RuntimeError("Actor run produced no dataset rows")
+          row = rows[0]
+          print(
+              "Dataset row: "
+              f"status={row.get('status')} "
+              f"words={row.get('wordCount')} "
+              f"speakers={row.get('speakerCount')} "
+              f"charged={row.get('charged')} "
+              f"minutes={row.get('billableMinutes')}"
+          )
+          if row.get("status") != "completed":
+              raise RuntimeError(f"Dataset row was not completed: {row.get('error')}")
+          if row.get("charged") is not True:
+              raise RuntimeError("Run completed but charge was not successful")
+
+          for key in ("mp3Url", "txtUrl", "zipUrl"):
+              artifact_url = row.get(key)
+              if not artifact_url:
+                  raise RuntimeError(f"Missing artifact URL: {key}")
+              status, headers, body = request_bytes(artifact_url)
+              if status >= 400 or not body:
+                  raise RuntimeError(f"Artifact {key} was not downloadable: status={status}")
+              print(f"Artifact {key}: downloadable, bytes={len(body)}, content_type={headers.get('content-type')}")
+
+          print("Console upload smoke test passed")
+          PY
