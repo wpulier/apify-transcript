@@ -31,9 +31,11 @@ from apify_transcript.standby import TranscriptStandbyHandler, TranscriptStandby
 from apify_transcript.transcript import (
     TranscriptBundle,
     artifact_payloads,
+    create_openai_prompted_transcript,
     render_srt,
     render_txt,
     render_vtt,
+    transcribe_media,
     transcribe_elevenlabs,
     transcribe_openai_authoritative,
     validate_quality,
@@ -481,6 +483,22 @@ class ArtifactTests(unittest.TestCase):
         self.assertTrue(any("missing speaker" in failure for failure in quality["failures"]))
         self.assertTrue(any("transcript ends" in failure for failure in quality["failures"]))
 
+    def test_quality_flags_too_few_words_for_short_audio(self):
+        canonical = {
+            "text": "And you got real clean",
+            "segments": [{"id": 0, "start": 0.0, "end": 125.0, "speaker": "Speaker 0", "text": "And you got real clean"}],
+            "words": [],
+            "duration": 125.0,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio = Path(temp_dir) / "song.mp3"
+            audio.write_bytes(b"audio")
+            with patch("apify_transcript.transcript.ffprobe_duration", return_value=125.0):
+                with patch("apify_transcript.transcript.detect_speech_end_seconds", return_value=125.0):
+                    quality = validate_quality(audio, canonical, "openai", "model", "authoritative", [])
+        self.assertEqual(quality["quality_status"], "failed_qa")
+        self.assertTrue(any("very low word count" in failure for failure in quality["failures"]))
+
 
 class ProviderTests(unittest.TestCase):
     def test_openai_authoritative_payload_uses_diarized_json_and_chunking_strategy(self):
@@ -508,6 +526,62 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(calls[0]["response_format"], "diarized_json")
         self.assertEqual(calls[0]["chunking_strategy"], "auto")
         self.assertEqual(canonical["segments"][0]["speaker"], "Speaker 0")
+
+    def test_openai_prompted_recovery_payload_uses_prompt_and_single_segment(self):
+        calls = []
+
+        class FakeTranscriptions:
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                return {"text": "line one line two"}
+
+        class FakeOpenAI:
+            def __init__(self, **kwargs):
+                self.audio = SimpleNamespace(transcriptions=FakeTranscriptions())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            audio = root / "song.mp3"
+            audio.write_bytes(b"audio")
+            config = TranscriptConfig(openai_api_key="key", keyterms=("Same Old Jane",))
+            with patch("apify_transcript.transcript.OpenAI", FakeOpenAI):
+                with patch("apify_transcript.transcript.ffprobe_duration", return_value=125.0):
+                    canonical = create_openai_prompted_transcript(FakeOpenAI(), audio, config, "gpt-4o-transcribe")
+
+        self.assertEqual(calls[0]["model"], "gpt-4o-transcribe")
+        self.assertEqual(calls[0]["response_format"], "json")
+        self.assertIn("spoken or sung word", calls[0]["prompt"])
+        self.assertIn("Same Old Jane", calls[0]["prompt"])
+        self.assertEqual(canonical["segments"][0]["start"], 0.0)
+        self.assertEqual(canonical["segments"][0]["end"], 125.0)
+        self.assertEqual(canonical["recovery_mode"], "prompted_text")
+
+    def test_openai_failed_qa_retries_with_prompted_recovery(self):
+        failed = failed_qa_bundle()
+        recovered = sample_canonical()
+        recovered["text"] = (
+            "This recovered transcript has enough words to pass the short audio quality gate today "
+            "because the retry captured the audible phrase sequence with much better coverage."
+        )
+        recovered["segments"] = [
+            {"id": 0, "start": 0.0, "end": 125.0, "speaker": "Speaker 0", "text": recovered["text"]}
+        ]
+        recovered["duration"] = 125.0
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio = Path(temp_dir) / "song.mp3"
+            audio.write_bytes(b"audio")
+            config = TranscriptConfig(openai_api_key="key")
+            with patch("apify_transcript.transcript.transcribe_openai_authoritative", return_value=(failed.canonical, failed.model)):
+                with patch("apify_transcript.transcript.transcribe_openai_prompted_recovery", return_value=(recovered, "gpt-4o-transcribe")) as recovery:
+                    with patch("apify_transcript.transcript.ffprobe_duration", return_value=125.0):
+                        with patch("apify_transcript.transcript.detect_speech_end_seconds", return_value=125.0):
+                            bundle = transcribe_media(audio, config, Path(temp_dir) / "tmp", log=lambda _: None)
+
+        recovery.assert_called_once()
+        self.assertEqual(bundle.model, "gpt-4o-transcribe")
+        self.assertNotEqual(bundle.quality_status, "failed_qa")
+        self.assertTrue(any(item.get("quality_status") == "failed_qa" for item in bundle.retry_history))
 
     def test_elevenlabs_payload_uses_scribe_diarization_and_keyterms(self):
         calls = []

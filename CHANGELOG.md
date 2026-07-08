@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5
+
+- Adds OpenAI prompted recovery after a diarized transcript fails QA.
+- Uses `gpt-4o-transcribe` with prompt guidance to recover more complete spoken or sung audio text.
+- Adds stricter short-audio QA so a one-line transcript from a multi-minute file cannot pass as successful.
+
 ## 0.4
 
 - Treats `failed_qa` transcripts as failed media files instead of successful outputs.

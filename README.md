@@ -39,7 +39,7 @@ Local files still need to transfer before transcription starts, but the Standby 
 
 - Handles large video and audio files without building your own upload/transcription pipeline.
 - Produces transcript exports that are useful outside Apify: text, subtitles, JSON, and ZIP.
-- Uses speaker-aware authoritative transcription by default.
+- Uses speaker-aware authoritative transcription by default, with a prompt-guided recovery pass when coverage fails QA.
 - Includes a quality report so you can see whether the transcript looks complete.
 - Continues processing later files even if one source fails.
 
@@ -105,7 +105,7 @@ Launch margin policy:
 ## Limitations
 
 - Transcription quality depends on source audio quality, overlapping speakers, background noise, accents, and provider behavior.
-- The Actor is optimized for spoken-word recordings. Music, singing, and lyric-style audio can fail QA if the speech model only captures a small fragment.
+- The Actor is optimized for spoken-word recordings. Music, singing, and lyric-style audio get a prompt-guided recovery pass, but can still fail QA if the model cannot capture enough intelligible words.
 - Speaker labels are generic, such as `Speaker 0`, unless a future workflow maps names.
 - Direct media URLs are supported for API users by passing strings in the `media` array; URLs must be downloadable by the Actor without an interactive login.
 - Upload or transcribe only media you own, are licensed to process, or otherwise have permission to process.

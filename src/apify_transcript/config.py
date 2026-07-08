@@ -5,6 +5,7 @@ from typing import Iterable
 
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-transcribe-diarize"
+DEFAULT_OPENAI_RECOVERY_MODEL = "gpt-4o-transcribe"
 DEFAULT_OPENAI_FAST_MODEL = "gpt-4o-mini-transcribe"
 DEFAULT_ELEVENLABS_MODEL = "scribe_v2"
 ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
@@ -83,6 +84,7 @@ class TranscriptConfig:
     concurrency: int = DEFAULT_CONCURRENCY
     require_successful_charge: bool = DEFAULT_REQUIRE_SUCCESSFUL_CHARGE
     openai_model: str = DEFAULT_OPENAI_MODEL
+    openai_recovery_model: str = DEFAULT_OPENAI_RECOVERY_MODEL
     openai_fast_model: str = DEFAULT_OPENAI_FAST_MODEL
     elevenlabs_model: str = DEFAULT_ELEVENLABS_MODEL
     openai_api_key: str | None = None
@@ -125,6 +127,7 @@ class TranscriptConfig:
             include_zip=input_bool(actor_input, "includeZip", True),
             concurrency=concurrency,
             require_successful_charge=input_bool(actor_input, "requireSuccessfulCharge", DEFAULT_REQUIRE_SUCCESSFUL_CHARGE),
+            openai_recovery_model=str(actor_input.get("openaiRecoveryModel") or DEFAULT_OPENAI_RECOVERY_MODEL),
             openai_api_key=actor_input.get("openaiApiKey") or env.get("OPENAI_API_KEY"),
             elevenlabs_api_key=actor_input.get("elevenlabsApiKey") or env.get("ELEVENLABS_API_KEY"),
             keyterms=tuple(cleaned_terms[:1000]),
