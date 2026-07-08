@@ -147,6 +147,27 @@ def sample_bundle():
     return TranscriptBundle("openai", "gpt-4o-transcribe-diarize", sample_canonical(), quality, [])
 
 
+def failed_qa_bundle():
+    canonical = sample_canonical()
+    canonical["text"] = "And you got real clean"
+    canonical["segments"] = [
+        {"id": 0, "start": 11.0, "end": 13.0, "speaker": "Speaker A", "text": "And you got real clean"}
+    ]
+    quality = {
+        "provider": "openai",
+        "model": "gpt-4o-transcribe-diarize",
+        "quality_status": "failed_qa",
+        "source_duration": 125.4,
+        "transcript_end_time": 13.0,
+        "word_count": 5,
+        "speaker_count": 1,
+        "warnings": [],
+        "failures": ["transcript ends at 00:00:13 before speech ends at 00:02:05"],
+        "retry_history": [],
+    }
+    return TranscriptBundle("openai", "gpt-4o-transcribe-diarize", canonical, quality, [])
+
+
 class InputTests(unittest.TestCase):
     def test_rejects_empty_source(self):
         with self.assertRaisesRegex(ValueError, "at least one"):
@@ -594,6 +615,45 @@ class ActorRunTests(unittest.TestCase):
         self.assertIn("Could not charge", fake_actor.dataset[0]["error"])
         self.assertFalse(fake_actor.dataset[0]["charged"])
         self.assertNotIn("001_a.txt", fake_actor.values)
+
+    def test_failed_qa_is_not_counted_as_completed_or_charged(self):
+        events = []
+        fake_actor = OrderTrackingActor(
+            {
+                "mediaUrls": ["https://example.com/song.m4a"],
+                "provider": "openai",
+                "openaiApiKey": "key",
+            },
+            events,
+        )
+
+        def fake_download(source, target_dir, apify_token=None, progress_log=None):
+            path = Path(target_dir) / f"{source.source_id}.m4a"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"media")
+            return SimpleNamespace(source=source, path=path, content_type="audio/mp4")
+
+        with patch("apify_transcript.actor.require_ffmpeg"):
+            with patch("apify_transcript.actor.download_source", side_effect=fake_download):
+                with patch("apify_transcript.actor.ffprobe_duration", return_value=125.4):
+                    with patch("apify_transcript.actor.transcribe_media", return_value=failed_qa_bundle()):
+                        with patch("apify_transcript.actor.prepare_mp3_artifact") as prepare_mp3:
+                            with patch("apify_transcript.actor.store_artifacts") as store_artifacts:
+                                with self.assertRaisesRegex(RuntimeError, "1 media file"):
+                                    asyncio.run(run(fake_actor))
+
+        self.assertEqual(events, [])
+        prepare_mp3.assert_not_called()
+        store_artifacts.assert_not_called()
+        self.assertEqual(fake_actor.dataset[0]["status"], "failed")
+        self.assertEqual(fake_actor.dataset[0]["qualityStatus"], "failed_qa")
+        self.assertEqual(fake_actor.dataset[0]["wordCount"], 5)
+        self.assertEqual(fake_actor.dataset[0]["speakerCount"], 1)
+        self.assertFalse(fake_actor.dataset[0]["charged"])
+        self.assertIn("Transcript failed QA", fake_actor.dataset[0]["error"])
+        self.assertEqual(fake_actor.values["OUTPUT"][0]["status"], "failed")
+        self.assertEqual(fake_actor.values["OUTPUT"][0]["successfulCount"], 0)
+        self.assertEqual(fake_actor.values["OUTPUT"][0]["failedCount"], 1)
 
     def test_ignored_charge_prevents_artifact_delivery_when_required(self):
         fake_actor = ChargeIgnoredActor(

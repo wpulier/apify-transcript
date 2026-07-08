@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Treats `failed_qa` transcripts as failed media files instead of successful outputs.
+- Stops before billing and artifact delivery when quality validation fails.
+- Preserves failed-QA details such as word count, speaker count, warnings, failures, and error message in the dataset row.
+
 ## 0.3
 
 - Makes the Standby upload page the primary product UX: upload media, click Go, and return to a job page for results.

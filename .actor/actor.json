@@ -3,7 +3,7 @@
   "name": "large-video-to-transcript",
   "title": "Large Video to Transcript",
   "description": "Use the Standby tab to upload video or audio, click Go, and get MP3 plus speaker-labeled TXT, JSON, SRT, VTT, ZIP, and quality reports.",
-  "version": "0.3",
+  "version": "0.3.1",
   "buildTag": "latest",
   "usesStandbyMode": true,
   "webServerSchema": "./openapi.json",

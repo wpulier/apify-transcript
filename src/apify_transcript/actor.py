@@ -15,13 +15,25 @@ from .billing import charge_transcription_minutes, ensure_budget
 from .config import TranscriptConfig
 from .jobs import JOB_STORE_NAME, JobStore, materialize_ingested_media
 from .media import MediaSource, download_source, ensure_supported_media, ffprobe_duration, parse_media_sources, require_ffmpeg
-from .transcript import artifact_payloads, prepare_mp3_artifact, transcribe_media
+from .transcript import TranscriptBundle, artifact_payloads, prepare_mp3_artifact, transcribe_media
 from .utils import ceil_minutes, slugify
 
 
 ACTOR_ID = "kTgaX3cfI6dlJHa6J"
 APIFY_API_BASE_URL = "https://api.apify.com/v2"
 DOWNLOAD_ATTACHMENT_SUFFIXES = {"txt"}
+
+
+class TranscriptQualityError(RuntimeError):
+    def __init__(self, bundle: TranscriptBundle) -> None:
+        self.bundle = bundle
+        super().__init__(quality_failure_message(bundle))
+
+
+def quality_failure_message(bundle: TranscriptBundle) -> str:
+    failures = [str(item) for item in (bundle.quality.get("failures") or []) if item]
+    details = "; ".join(failures) if failures else "quality validation failed"
+    return f"Transcript failed QA: {details}"
 
 
 def artifact_key(source_id: str, source_name: str, suffix: str) -> str:
@@ -110,6 +122,8 @@ async def process_one(actor: object, source: Any, config: TranscriptConfig, work
         work_dir / "tmp" / source.source_id,
         log=lambda message: actor.log.info("%s: %s", source.name, message),
     )
+    if bundle.quality_status == "failed_qa":
+        raise TranscriptQualityError(bundle)
     await actor.set_status_message(f"Packaging results: {source.name}")
     mp3_path = prepare_mp3_artifact(local.path, work_dir / "tmp" / source.source_id)
     payloads = artifact_payloads(bundle, include_zip=config.include_zip, mp3_path=mp3_path)
@@ -258,19 +272,20 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                 )
             except Exception as exc:
                 log_actor_error(actor, f"Failed {source.name}: {exc}")
+                failed_bundle = exc.bundle if isinstance(exc, TranscriptQualityError) else None
                 row = {
                     "status": "failed",
                     "sourceId": source.source_id,
                     "sourceName": source.name,
                     "source": source.original,
-                    "provider": config.provider,
-                    "model": config.openai_model_for_mode() if config.provider != "elevenlabs" else config.elevenlabs_model,
-                    "qualityStatus": None,
-                    "wordCount": None,
-                    "speakerCount": None,
-                    "sourceDuration": None,
-                    "durationMinutes": None,
-                    "transcriptEndTime": None,
+                    "provider": failed_bundle.provider if failed_bundle else config.provider,
+                    "model": failed_bundle.model if failed_bundle else config.openai_model_for_mode() if config.provider != "elevenlabs" else config.elevenlabs_model,
+                    "qualityStatus": failed_bundle.quality_status if failed_bundle else None,
+                    "wordCount": failed_bundle.word_count if failed_bundle else None,
+                    "speakerCount": failed_bundle.speaker_count if failed_bundle else None,
+                    "sourceDuration": failed_bundle.source_duration if failed_bundle else None,
+                    "durationMinutes": round(float(failed_bundle.source_duration or 0) / 60.0, 2) if failed_bundle and failed_bundle.source_duration else None,
+                    "transcriptEndTime": failed_bundle.transcript_end_time if failed_bundle else None,
                     "billingEvent": None,
                     "billableMinutes": None,
                     "charged": False,
@@ -279,6 +294,8 @@ async def run(actor: object = Actor) -> dict[str, Any]:
                     "artifactUrls": {},
                     "mp3Key": None,
                     "mp3Url": None,
+                    "warnings": failed_bundle.quality.get("warnings", []) if failed_bundle else [],
+                    "failures": failed_bundle.quality.get("failures", []) if failed_bundle else [],
                     "error": str(exc),
                 }
                 await actor.push_data(row)
