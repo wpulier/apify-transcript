@@ -1,6 +1,6 @@
 # Large Video to Transcript
 
-Upload a large video or audio file, click **Go**, and get an MP3 plus timestamped transcript exports when the job is done.
+Upload a large video or audio file, click **Start transcript**, and get an MP3 plus timestamped transcript exports when the job is done.
 
 Use the Actor's **Standby** tab for the customer flow. Do not start from **Runs** or the raw **Input** form unless you intentionally want the fallback Apify batch path.
 
@@ -27,11 +27,11 @@ The Actor also writes one dataset row per source with status, quality, duration,
 1. Open the Actor's **Standby** tab. If you are on **Runs** or **Input**, you are in the fallback Apify form, not the simple upload flow.
 2. Open the upload page.
 3. Choose one video/audio file or paste one direct downloadable media URL.
-4. Click **Go**.
+4. Click **Start transcript**.
 5. Keep the job page open, or bookmark it and come back later.
 6. Download the MP3, transcript, subtitles, JSON, quality report, or ZIP bundle when the job is complete. The **Transcript** link downloads the `.txt` file directly.
 
-The normal Apify **Input** form still works as a fallback/API-compatible batch path, but the Standby uploader is the primary product experience. It avoids Apify's technical upload modal and keeps the flow to: upload, click Go, download results.
+The normal Apify **Input** form still works as a fallback/API-compatible batch path, but the Standby uploader is the primary product experience. It avoids Apify's technical upload modal and keeps the flow to: upload, start transcript, download results.
 
 Local files still need to transfer before transcription starts, but the Standby uploader shows progress and starts the worker run automatically. For very large files, especially over 500 MB, a direct downloadable media URL is usually faster and easier to retry. The finished MP3, TXT, JSON, SRT, VTT, quality report, and ZIP links are signed browser-download links, so you do not need to manually add an API token to open the results after a run completes. These files are stored in the run's default Apify key-value store, so retention follows the run storage settings on your Apify account; download or preserve important outputs before that storage expires.
 

@@ -326,13 +326,13 @@ def render_home_page() -> str:
       <h1>Upload media. Get transcript exports.</h1>
       <p class="sub">Choose one video/audio file or paste one direct media URL. We handle upload, MP3 creation, transcription, subtitles, JSON, quality reporting, and ZIP packaging.</p>
       <form id="job-form" class="form">
-        <label>Direct media URL<input id="media-url" type="url" placeholder="https://example.com/recording.mp4"></label>
-        <div class="divider">or</div>
         <label>Upload video/audio<input id="media-file" type="file" accept="audio/*,video/*,.mp3,.mp4,.mov,.m4a,.wav,.webm,.mkv"></label>
-        <button id="submit-button" type="submit">Go</button>
+        <div class="divider">or use a direct media URL</div>
+        <label>Direct media URL<input id="media-url" type="url" placeholder="https://example.com/recording.mp4"></label>
+        <button id="submit-button" type="submit">Start transcript</button>
       </form>
-      <div id="status" class="status">Ready.</div>
-      <div class="progress"><div id="bar"></div></div>
+      <div id="status" class="status" aria-live="polite">Ready.</div>
+      <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="bar"></div></div>
       <p id="job-link" class="job-link"></p>
     </section>
   </main>
@@ -356,8 +356,8 @@ def render_job_page(job_id: str) -> str:
     <section class="panel">
       <p class="eyebrow">Transcript job</p>
       <h1 id="title">Processing</h1>
-      <p id="message" class="sub">Loading job {escaped_job_id}...</p>
-      <div class="progress"><div id="bar"></div></div>
+      <p id="message" class="sub" aria-live="polite">Loading job {escaped_job_id}...</p>
+      <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="bar"></div></div>
       <dl id="meta" class="meta"></dl>
       <div id="links" class="links"></div>
     </section>
@@ -405,7 +405,11 @@ const jobLink = document.getElementById('job-link');
 
 function setStatus(text, percent) {
   statusEl.textContent = text;
-  if (typeof percent === 'number') bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  if (typeof percent === 'number') {
+    const value = Math.max(0, Math.min(100, percent));
+    bar.style.width = `${value}%`;
+    bar.parentElement.setAttribute('aria-valuenow', String(value));
+  }
 }
 async function jsonFetch(url, options) {
   const response = await fetch(url, options);
@@ -511,7 +515,9 @@ function safeLink(url, text) {
 function render(job) {
   title.textContent = label(job.status) || 'Job';
   message.textContent = job.message || '';
-  bar.style.width = `${pct(job)}%`;
+  const percent = pct(job);
+  bar.style.width = `${percent}%`;
+  bar.parentElement.setAttribute('aria-valuenow', String(percent));
   const rows = [
     ['Job ID', escapeHtml(job.jobId)],
     ['Source', escapeHtml(job.fileName || job.mediaUrl)],

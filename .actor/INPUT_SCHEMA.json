@@ -1,12 +1,12 @@
 {
   "title": "Large Video to Transcript",
-  "description": "Fallback normal-run input only. For the simple customer upload flow, use the Actor Standby tab: upload media, click Go, and download results.",
+  "description": "Fallback normal-run input only. For the simple customer upload flow, use the Actor Standby tab: upload media, click Start transcript, and download results.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "media": {
       "title": "Fallback upload input",
-      "description": "This is the fallback Apify run form. For the normal customer flow, go to the Actor Standby tab instead, open the upload page, choose one MP4, MOV, WebM, MP3, M4A, or WAV file, and click Go. Use this field only for API/batch-compatible normal runs.",
+      "description": "This is the fallback Apify run form. For the normal customer flow, go to the Actor Standby tab instead, open the upload page, choose one MP4, MOV, WebM, MP3, M4A, or WAV file, and click Start transcript. Use this field only for API/batch-compatible normal runs.",
       "type": "array",
       "editor": "fileupload",
       "minItems": 1,

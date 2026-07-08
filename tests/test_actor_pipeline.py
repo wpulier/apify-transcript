@@ -203,6 +203,8 @@ class InputTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         actor = json.loads((root / ".actor" / "actor.json").read_text())
         output_schema = json.loads((root / ".actor" / "output_schema.json").read_text())
+        dataset_schema = json.loads((root / ".actor" / "dataset_schema.json").read_text())
+        openapi = json.loads((root / ".actor" / "openapi.json").read_text())
         self.assertIn("Standby tab", actor["description"])
         self.assertTrue(actor["usesStandbyMode"])
         self.assertEqual(actor["webServerSchema"], "./openapi.json")
@@ -211,6 +213,11 @@ class InputTests(unittest.TestCase):
         self.assertIn("results", output_schema["properties"])
         self.assertIn("summary", output_schema["properties"])
         self.assertIn("artifacts", output_schema["properties"])
+        self.assertIn("description", dataset_schema["views"]["overview"])
+        self.assertEqual(dataset_schema["fields"]["properties"]["txtUrl"]["title"], "Transcript URL")
+        self.assertIn("description", dataset_schema["fields"]["properties"]["qualityStatus"])
+        self.assertIn("/api/jobs", openapi["paths"])
+        self.assertIn("uploadedBytes", openapi["components"]["schemas"]["Job"]["properties"])
 
     def test_deploy_workflow_sets_full_permissions_for_uploads(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "apify-push.yml").read_text()
@@ -332,7 +339,10 @@ class StandbyTests(unittest.TestCase):
         self.assertIn("media-file", html)
         self.assertIn("media-url", html)
         self.assertIn("/jobs", html)
-        self.assertIn(">Go<", html)
+        self.assertIn(">Start transcript<", html)
+        self.assertIn('aria-live="polite"', html)
+        self.assertIn('role="progressbar"', html)
+        self.assertLess(html.index("media-file"), html.index("media-url"))
 
     def test_worker_charge_limit_reads_standby_limit(self):
         with patch.dict("os.environ", {"ACTOR_MAX_TOTAL_CHARGE_USD": "12.50"}, clear=True):

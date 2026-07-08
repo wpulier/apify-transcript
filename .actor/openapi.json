@@ -2,9 +2,19 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Large Video to Transcript Standby API",
-    "version": "1.1.0",
-    "description": "Open the submit page, upload one video/audio file or direct media URL, and receive a job page with MP3 plus transcript artifacts when complete. Standby requests require Apify API authentication."
+    "version": "1.2.0",
+    "description": "Open the submit page, upload one video/audio file or direct media URL, and receive a job page with MP3 plus transcript artifacts when complete. Standby requests require Apify API authentication.",
+    "license": {
+      "name": "Proprietary",
+      "url": "https://apify.com/esteemed_chimta/large-video-to-transcript"
+    }
   },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current Apify Standby server"
+    }
+  ],
   "security": [
     {
       "apifyToken": []
@@ -13,16 +23,21 @@
   "paths": {
     "/": {
       "get": {
+        "operationId": "openSubmitPage",
         "summary": "Open the submit page",
         "responses": {
           "200": {
             "description": "HTML submit page"
+          },
+          "404": {
+            "description": "Page not found"
           }
         }
       }
     },
     "/jobs": {
       "post": {
+        "operationId": "createTranscriptJob",
         "summary": "Create a transcript job",
         "requestBody": {
           "required": true,
@@ -71,12 +86,75 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid job request"
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "post": {
+        "operationId": "createTranscriptJobApi",
+        "summary": "Create a transcript job",
+        "description": "API alias for /jobs. Provide either mediaUrl for a direct downloadable URL, or fileName and fileSize to start a chunked browser upload.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["mediaUrl"],
+                    "properties": {
+                      "mediaUrl": {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": ["fileName", "fileSize"],
+                    "properties": {
+                      "fileName": {
+                        "type": "string"
+                      },
+                      "fileSize": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "contentType": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid job request"
           }
         }
       }
     },
     "/jobs/{jobId}/status": {
       "get": {
+        "operationId": "getJobStatus",
         "summary": "Get job status",
         "parameters": [
           {
@@ -98,12 +176,47 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        }
+      }
+    },
+    "/api/jobs/{jobId}": {
+      "get": {
+        "operationId": "getJobStatusApi",
+        "summary": "Get job status",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current job status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
           }
         }
       }
     },
     "/jobs/{jobId}/chunks/{index}": {
       "put": {
+        "operationId": "uploadMediaChunk",
         "summary": "Upload one media chunk",
         "parameters": [
           {
@@ -138,12 +251,19 @@
         "responses": {
           "200": {
             "description": "Chunk accepted"
+          },
+          "400": {
+            "description": "Invalid chunk upload"
+          },
+          "404": {
+            "description": "Job not found"
           }
         }
       }
     },
     "/jobs/{jobId}/complete": {
       "post": {
+        "operationId": "completeUpload",
         "summary": "Finalize upload and start transcription",
         "parameters": [
           {
@@ -165,12 +285,50 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Upload is incomplete or invalid"
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        }
+      }
+    },
+    "/api/jobs/{jobId}/complete": {
+      "post": {
+        "operationId": "completeUploadApi",
+        "summary": "Finalize upload and start transcription",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Worker run started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Upload is incomplete or invalid"
           }
         }
       }
     },
     "/jobs/{jobId}": {
       "get": {
+        "operationId": "openJobPage",
         "summary": "Open the job page",
         "parameters": [
           {
@@ -185,6 +343,9 @@
         "responses": {
           "200": {
             "description": "HTML job page"
+          },
+          "400": {
+            "description": "Invalid job ID"
           }
         }
       }
@@ -232,12 +393,55 @@
             "type": "string",
             "enum": ["created", "uploading", "queued", "processing", "completed", "failed"]
           },
+          "sourceType": {
+            "type": "string",
+            "enum": ["url", "upload"]
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileSize": {
+            "type": "integer",
+            "nullable": true
+          },
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "chunkSize": {
+            "type": "integer",
+            "nullable": true
+          },
+          "totalChunks": {
+            "type": "integer",
+            "nullable": true
+          },
+          "uploadedChunks": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "uploadedBytes": {
+            "type": "integer",
+            "nullable": true
+          },
           "message": {
             "type": "string"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true
           },
           "runUrl": {
             "type": "string",
             "format": "uri",
+            "nullable": true
+          },
+          "result": {
+            "type": "object",
             "nullable": true
           },
           "artifactUrls": {

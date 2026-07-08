@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6
+
+- Makes file upload the first action in the Standby submit page and changes the primary button to `Start transcript`.
+- Adds accessible live status/progress markup to the Standby submit and job pages.
+- Expands OpenAPI and dataset schema metadata so Apify Console, API users, and agents can discover job progress and artifact fields more clearly.
+
 ## 0.5
 
 - Adds OpenAI prompted recovery after a diarized transcript fails QA.

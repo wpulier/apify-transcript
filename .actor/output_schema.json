@@ -1,12 +1,12 @@
 {
   "actorOutputSchemaVersion": 1,
   "title": "Large Video to Transcript output",
-  "description": "Links to transcript result rows, the run summary, and generated transcript/audio artifacts.",
+  "description": "Start with Transcript results for clickable MP3, transcript, and ZIP links. Run summary and Generated artifacts provide the underlying storage records for API users.",
   "properties": {
     "results": {
       "type": "string",
       "title": "Transcript results",
-      "description": "Dataset rows with status, quality, duration, word count, speaker count, and signed artifact links for each uploaded media file.",
+      "description": "Primary table: status, quality, duration, word count, speaker count, and signed MP3/transcript/ZIP links for each media file.",
       "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
     },
     "summary": {
@@ -18,7 +18,7 @@
     "artifacts": {
       "type": "string",
       "title": "Generated artifacts",
-      "description": "Key-value store records for MP3, TXT, JSON, SRT, VTT, quality report, and ZIP outputs.",
+      "description": "Underlying key-value store records for MP3, TXT, JSON, SRT, VTT, quality report, and ZIP outputs.",
       "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys"
     }
   }
