@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.1
+## 0.4
 
 - Treats `failed_qa` transcripts as failed media files instead of successful outputs.
 - Stops before billing and artifact delivery when quality validation fails.
